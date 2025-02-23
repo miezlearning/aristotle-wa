@@ -190,6 +190,7 @@ async function connectToWhatsApp() {
                 msg.message.conversation || 
                 msg.message?.extendedTextMessage?.text || 
                 msg.message?.imageMessage?.caption || 
+                msg.message?.videoMessage?.caption || 
                 ''
             ).trim();
         // Auto-response logic (dipindahkan ke atas dan hanya dijalankan jika bukan command)
