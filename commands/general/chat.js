@@ -35,7 +35,7 @@ const safetySettings = [  // Optional safety settings - adjust as needed
 module.exports = {
     name: 'chat',
     alias: ['c'],
-    category: 'ai',
+    category: 'general',
     description: 'Chat with Gemini AI',
     usage: '!chat <your message>',
     permission: 'user',
