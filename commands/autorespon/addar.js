@@ -4,33 +4,40 @@ module.exports = {
     name: 'addautoresponse',
     category: 'auto response',
     alias: ['addar', 'buatar'],
-    description: 'Menambahkan auto-response untuk grup ini.',
+    description: 'Menambahkan auto respon ke grup.',
     async execute(client, msg, args) {
         if (!msg.key.remoteJid.endsWith('@g.us')) {
-            return await client.sendMessage(msg.key.remoteJid, { text: 'Perintah ini hanya bisa digunakan di grup.' });
+            return await client.sendMessage(msg.key.remoteJid, { text: 'This command is only for groups.' });
         }
 
         const groupId = msg.key.remoteJid;
-        const [trigger, ...responseParts] = args;
-        const response = responseParts.join(' ');
+        const input = args.join(' '); 
+        const parts = input.split('|'); 
+        
+        if (parts.length < 2) {
+            return await client.sendMessage(msg.key.remoteJid, { text: 'Usage: !addautoresponse [trigger] | [response]' });
+        }
+
+        const trigger = parts[0].trim(); 
+        const response = parts.slice(1).join('|').trim(); 
 
         if (!trigger || !response) {
-            return await client.sendMessage(msg.key.remoteJid, { text: 'Penggunaan: !addautoresponse [trigger] [response]' });
+            return await client.sendMessage(msg.key.remoteJid, { text: 'Usage: !addautoresponse [trigger] | [response]' });
         }
 
         try {
             let autoResponses = await getAutoResponsesForGroup(groupId);
             const existingTriggerIndex = autoResponses.findIndex(ar => ar.trigger.toLowerCase() === trigger.toLowerCase());
             if (existingTriggerIndex !== -1) {
-                return await client.sendMessage(msg.key.remoteJid, { text: '❌ Trigger ini sudah terdaftar. Gunakan trigger lain.' });
+                return await client.sendMessage(msg.key.remoteJid, { text: '❌ This trigger is already taken. Use a different one.' });
             }
 
             autoResponses.push({ trigger, response });
             await saveAutoResponsesForGroup(groupId, autoResponses);
-            await client.sendMessage(msg.key.remoteJid, { text: `Auto-response berhasil ditambahkan!\nTrigger: ${trigger}\nResponse: ${response}` }, {quote: msg});
+            await client.sendMessage(msg.key.remoteJid, { text: `Auto-response added successfully!\nTrigger: ${trigger}\nResponse: ${response}` }, { quote: msg });
         } catch (error) {
-            console.error('Gagal menambahkan auto-response:', error);
-            await client.sendMessage(msg.key.remoteJid, { text: '❌ Gagal menambahkan auto-response. Coba lagi nanti.' });
+            console.error('Failed to add auto-response:', error);
+            await client.sendMessage(msg.key.remoteJid, { text: '❌ Failed to add auto-response. Try again later.' });
         }
     },
 };
