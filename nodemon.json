@@ -1,0 +1,5 @@
+{
+    "ignore": ["auth_info/*", "auth_info/*","data/*"],
+    "watch": ["."],
+    "ext": "js,json"
+  }
