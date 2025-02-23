@@ -4,3 +4,6 @@ config.json
 auth_info/
 .bolt/
 data/
+reminders.json
+scheduledMessages.json
+schedules.json
