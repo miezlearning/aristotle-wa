@@ -24,7 +24,7 @@ module.exports = {
                 return await sock.sendMessage(msg.key.remoteJid, {
                     text: 'Posisi harus "atas" atau "bawah".'
                 });
-            }
+            } 
 
             // 2. Handle quoted message
             let quotedMsg = null;

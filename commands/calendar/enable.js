@@ -5,6 +5,7 @@ const config = require('../../config.json');
 module.exports = {
     name: 'enablecalendar',
     category: 'calendar',
+    alias: 'cl',
     description: 'Mengaktifkan kalender untuk grup tertentu.',
     async execute(sock, msg, args) {
         console.log('Memulai perintah enablecalendar...'); // Log awal
@@ -34,19 +35,15 @@ module.exports = {
 
         console.log('Kalender ditemukan:', calendarToEnable);
 
-        // 1. Buat salinan konfigurasi sementara
         const updatedConfig = JSON.parse(JSON.stringify(config)); // Deep copy
 
-        // Temukan index kalender yang mau di update
         const calendarIndex = updatedConfig.calendars.findIndex(calendar => calendar.name === calendarName);
 
-        //Pastikan index nya valid
         if (calendarIndex === -1) {
             console.log('Kalender tidak ditemukan dalam konfigurasi yang diperbarui.');
             return await sock.sendMessage(msg.key.remoteJid, { text: `Kalender dengan nama "${calendarName}" tidak ditemukan dalam konfigurasi yang diperbarui.` });
         }
 
-        // Ambil kalender yang mau di update dari updatedConfig
         const calendarToUpdate = updatedConfig.calendars[calendarIndex];
 
         if (!calendarToUpdate.allowedGroups) {
