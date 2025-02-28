@@ -59,7 +59,9 @@ module.exports = {
                     
                     // Tambahkan indikator alias jika command memiliki alias
                     if (command.alias && command.alias.length > 0) {
-                        commandText += ` (alias: ${command.alias.map(a => `\`!${a}\``).join(', ')})`;
+                        if (Array.isArray(command.alias)) {
+                            commandText += ` (alias: ${command.alias.map(a => `\`!${a}\``).join(', ')})`;
+                        }
                     }
                     
                     helpText += `${commandText}: ${description}\n`;
