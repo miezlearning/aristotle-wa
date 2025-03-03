@@ -4,7 +4,7 @@ module.exports = {
     name: 'addautoresponse',
     category: 'auto response',
     alias: ['addar', 'buatar'],
-    description: 'Menambahkan auto respon ke grup.',
+    description: 'Menambahkan auto respon ke grup (hanya teks).',
     async execute(client, msg, args) {
         if (!msg.key.remoteJid.endsWith('@g.us')) {
             return await client.sendMessage(msg.key.remoteJid, { text: 'This command is only for groups.' });
