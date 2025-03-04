@@ -7,6 +7,18 @@ module.exports = {
     permission: 'user',
     async execute(sock, msg, args) {
         console.log('Perintah pin dipanggil:', JSON.stringify(msg, null, 2));
+
+        const isAdmin = msg.key.participant === config.adminNumber + '@s.whatsapp.net'; // Sesuaikan dengan cara menentukan admin
+        if (!isAdmin) {
+            try {
+                await sock.sendMessage(msg.key.remoteJid, { text: '❌ Anda tidak memiliki izin untuk menggunakan perintah ini!' }, { quoted: msg });
+                console.log('Pesan kesalahan izin terkirim.');
+            } catch (error) {
+                console.error('Gagal mengirim pesan kesalahan izin:', error);
+            }
+            return;
+        }
+
         try {
             // Cek apakah pesan adalah reply
             if (!msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
