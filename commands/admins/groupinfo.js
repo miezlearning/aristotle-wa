@@ -3,8 +3,8 @@ const config = require('../../config.json');
 module.exports = {
     name: 'groupinfo',
     category: 'admin',
-    description: 'Memeriksa informasi grup berdasarkan ID grup yang diberikan',
-    usage: '!groupinfo <group_id>',
+    description: 'Memeriksa informasi grup tempat perintah ini digunakan atau berdasarkan ID grup yang diberikan',
+    usage: '!groupinfo [group_id]',
     permission: 'admin',
     async execute(sock, msg, args) {
         // Fungsi helper untuk mengirim pesan
@@ -54,24 +54,25 @@ module.exports = {
             return;
         }
 
-        // Validasi argumen
-        if (args.length !== 1) {
-            console.log('Jumlah argumen tidak valid');
+        // Tentukan groupId: gunakan args[0] jika ada, jika tidak gunakan current group
+        let groupId = msg.key.remoteJid; // Default ke grup tempat command dijalankan
+        if (args.length > 0) {
+            groupId = args[0];
+            // Validasi format group ID jika diberikan
+            if (!groupId.endsWith('@g.us')) {
+                console.log('ID Grup tidak valid');
+                await sendMessage(
+                    msg.key.remoteJid,
+                    '❌ ID Grup tidak valid! Harus berakhiran @g.us'
+                );
+                return;
+            }
+        } else if (!groupId.endsWith('@g.us')) {
+            // Jika tidak ada args dan bukan grup
+            console.log('Perintah tidak digunakan di grup');
             await sendMessage(
-                msg.key.remoteJid,
-                '❌ Format salah! Gunakan: !groupinfo <group_id>'
-            );
-            return;
-        }
-
-        const groupId = args[0];
-
-        // Validasi format group ID
-        if (!groupId.endsWith('@g.us')) {
-            console.log('ID Grup tidak valid');
-            await sendMessage(
-                msg.key.remoteJid,
-                '❌ ID Grup tidak valid!'
+                groupId,
+                '❌ Perintah ini hanya dapat digunakan di dalam grup jika tidak ada ID grup yang diberikan!'
             );
             return;
         }
