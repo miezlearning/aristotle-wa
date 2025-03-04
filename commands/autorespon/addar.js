@@ -18,8 +18,7 @@ module.exports = {
             return await client.sendMessage(msg.key.remoteJid, { text: 'Usage: !addautoresponse [trigger] | [response]' });
         }
 
-        const trigger = parts[0].trim(); 
-        const response = parts.slice(1).join('|').trim(); 
+        const trigger = parts[0].trim();         const response = parts.slice(1).join('|').trim(); 
 
         if (!trigger || !response) {
             return await client.sendMessage(msg.key.remoteJid, { text: 'Usage: !addautoresponse [trigger] | [response]' });
