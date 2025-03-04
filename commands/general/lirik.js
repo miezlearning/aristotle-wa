@@ -9,6 +9,7 @@ module.exports = {
     permission: 'user',
     async execute(sock, msg, args) {
         console.log('Perintah lirik dipanggil:', JSON.stringify(msg, null, 2));
+        
         try {
             // Cek apakah ada argumen atau quoted text
             let text = args.join(' ').trim();
@@ -18,45 +19,47 @@ module.exports = {
 
             if (!text) {
                 return await sock.sendMessage(msg.key.remoteJid, {
-                    text: 'Kirim judul lagu atau penyanyi dengan perintah !lirik\nContoh: !lirik Wave to Earth - Homesick'
+                    text: 'Kirim judul lagu atau penyanyi dengan perintah !lirik\n\n' +
+                          '⚠️ *Format yang disarankan:* Penyanyi - Judul\n' +
+                          '✅ Contoh: *Wave to Earth - Homesick*'
                 });
             }
 
+            // Beri reaksi loading
             await sock.sendMessage(msg.key.remoteJid, {
                 react: { text: "⏳", key: msg.key }
             });
 
             console.log('Mencari lirik untuk:', text);
 
-            // Pisahkan penyanyi dan judul jika ada tanda '-'
+            // Normalisasi input agar format lebih bersih
+            text = text.replace(/\s*-\s*/g, ' - ').trim(); // Pastikan format "artis - judul"
+
             let artist = '';
             let title = text;
             if (text.includes('-')) {
                 [artist, title] = text.split('-').map(part => part.trim());
             }
 
-            // Panggil API lewdhutao Musixmatch
-            const apiUrl = `https://lyrics.lewdhutao.my.eu.org/musixmatch/lyrics-search?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`;
-            const response = await Axios.get(apiUrl);
-
-            // Debugging: Log respons API
-            console.log('Response:', response.data);
-
-            // Cek apakah respons valid
-            if (!response.data || !response.data.lyrics) {
+            // Panggil fungsi pencarian lirik
+            const lyricsData = await fetchLyrics(title, artist);
+            if (!lyricsData) {
                 return await sock.sendMessage(msg.key.remoteJid, {
-                    text: '❌ Tidak menemukan lirik untuk lagu tersebut.'
+                    text: '❌ Tidak menemukan lirik untuk lagu tersebut.\n\n' +
+                          '⚠️ Pastikan format input benar: Penyanyi - Judul atau Judul - Penyanyi.\n' +
+                          '✅ Coba: *Wave to Earth - Homesick* atau *Homesick - Wave to Earth*'
                 });
             }
 
-            const { track_name, artist_name, lyrics, artwork_url } = response.data;
-
+            const { track_name, artist_name, lyrics, artwork_url } = lyricsData;
             console.log('Lirik ditemukan:', track_name);
-            const caption = `🎵 *${track_name}*\n` +
-                           `*${artist_name}*\n\n` +
-                           `${lyrics}`;
 
-            // Kirim dengan artwork dari API
+            // Format pesan lirik
+            const caption = `🎵 *${track_name}*\n` +
+                            `*${artist_name}*\n\n` +
+                            `${lyrics}`;
+
+            // Kirim dengan artwork
             await sock.sendMessage(msg.key.remoteJid, {
                 image: { url: artwork_url || 'https://via.placeholder.com/150?text=Lyrics' },
                 caption: caption
@@ -78,3 +81,28 @@ module.exports = {
         }
     }
 };
+
+// Fungsi untuk mencoba pencarian dua kali dengan urutan berbeda
+async function fetchLyrics(title, artist) {
+    let apiUrl1 = `https://lyrics.lewdhutao.my.eu.org/musixmatch/lyrics-search?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`;
+    let apiUrl2 = `https://lyrics.lewdhutao.my.eu.org/musixmatch/lyrics-search?title=${encodeURIComponent(artist)}&artist=${encodeURIComponent(title)}`;
+    
+    try {
+        let response = await Axios.get(apiUrl1);
+        if (response.data && response.data.lyrics) {
+            return response.data;
+        }
+
+        console.log('Pencarian pertama gagal, mencoba format terbalik...');
+        
+        // Jika pencarian pertama gagal, coba dengan format terbalik
+        response = await Axios.get(apiUrl2);
+        if (response.data && response.data.lyrics) {
+            return response.data;
+        }
+    } catch (error) {
+        console.error('Error fetching lyrics:', error);
+    }
+
+    return null;
+}
