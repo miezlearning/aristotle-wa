@@ -1,6 +1,5 @@
 const config = require('../../config.json');
 
-
 module.exports = {
     name: 'join',
     alias: ['joingrup', 'addgrup'],
@@ -12,12 +11,13 @@ module.exports = {
         console.log('Perintah join dipanggil:', JSON.stringify(msg, null, 2));
         
         try {
-
+            // Cek izin admin dari config.adminNumber
             if (msg.key.participant !== config.adminNumber + '@s.whatsapp.net') {
                 return await sock.sendMessage(msg.key.remoteJid, {
                     text: '❌ Anda tidak memiliki izin untuk menggunakan perintah ini!'
                 });
             }
+
             // Cek apakah ada argumen (link)
             let link = args.join(' ').trim();
             if (!link) {
@@ -55,19 +55,41 @@ module.exports = {
             console.log('Kode undangan:', inviteCode);
 
             // Gabung ke grup menggunakan kode undangan
-            const groupData = await sock.groupAcceptInvite(inviteCode);
-            if (!groupData || !groupData.id) {
+            const groupResponse = await sock.groupAcceptInvite(inviteCode);
+            console.log('Respons dari groupAcceptInvite:', groupResponse);
+
+            // Periksa respons (bisa string jid atau objek)
+            let groupId;
+            if (typeof groupResponse === 'string') {
+                groupId = groupResponse; // Jika string langsung (jid)
+            } else if (groupResponse && groupResponse.id) {
+                groupId = groupResponse.id; // Jika objek dengan id
+            } else {
+                // Cek apakah bot sudah ada di grup
+                const groups = await sock.groupFetchAllParticipating();
+                const groupExists = Object.values(groups).some(group => group.inviteCode === inviteCode);
+                if (groupExists) {
+                    groupId = Object.keys(groups).find(key => groups[key].inviteCode === inviteCode);
+                    console.log('Bot sudah ada di grup:', groupId);
+                    await sock.sendMessage(msg.key.remoteJid, {
+                        text: `ℹ️ Bot sudah berada di grup!\nID Grup: ${groupId}`
+                    });
+                    await sock.sendMessage(msg.key.remoteJid, {
+                        react: { text: "✅", key: msg.key }
+                    });
+                    return;
+                }
                 throw new Error('Gagal bergabung ke grup. Link mungkin kedaluwarsa atau tidak valid.');
             }
 
-            console.log('Berhasil bergabung ke grup:', groupData.id);
+            console.log('Berhasil bergabung ke grup:', groupId);
             await sock.sendMessage(msg.key.remoteJid, {
-                text: `✅ Bot telah bergabung ke grup!\nID Grup: ${groupData.id}`
+                text: `✅ Bot telah bergabung ke grup!\nID Grup: ${groupId}`
             });
 
             // Kirim pesan selamat datang ke grup (opsional)
-            await sock.sendMessage(groupData.id, {
-                text: 'Halo semua! Saya bot yang baru bergabung. Ketik !help untuk melihat perintah yang tersedia.'
+            await sock.sendMessage(groupId, {
+                text: '*Halo semua*! Aku bot yang baru bergabung. Ketik `!help` untuk melihat perintah yang kupunya 👻.'
             });
 
             await sock.sendMessage(msg.key.remoteJid, {
