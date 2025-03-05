@@ -33,7 +33,7 @@ module.exports = {
             console.log('Mencari lirik untuk:', text);
 
             // Normalisasi input agar format lebih bersih
-            text = text.replace(/\s*-\s*/g, ' - ').trim(); // Pastikan format "artis - judul"
+            text = text.replace(/\s*-\s*/g, ' - ').trim();
 
             let artist = '';
             let title = text;
@@ -42,12 +42,13 @@ module.exports = {
             }
 
             // Panggil fungsi pencarian lirik
-            const lyricsData = await fetchLyrics(title, artist);
+            const lyricsData = await fetchLyrics(title, artist, text);
             if (!lyricsData) {
                 return await sock.sendMessage(msg.key.remoteJid, {
                     text: '❌ Tidak menemukan lirik untuk lagu tersebut.\n\n' +
-                          '⚠️ Pastikan format input benar: Penyanyi - Judul atau Judul - Penyanyi.\n' +
-                          '✅ Coba: *Wave to Earth - Homesick* atau *Homesick - Wave to Earth*'
+                          '⚠️ Pastikan judul dan penyanyi benar.\n' +
+                          '✅ Coba: *Wave to Earth - Homesick* atau *Homesick - Wave to Earth*\n' +
+                          'ℹ️ Jika lagu baru atau kurang populer, lirik mungkin belum tersedia di Musixmatch.'
                 });
             }
 
@@ -82,27 +83,36 @@ module.exports = {
     }
 };
 
-// Fungsi untuk mencoba pencarian dua kali dengan urutan berbeda
-async function fetchLyrics(title, artist) {
-    let apiUrl1 = `https://lyrics.lewdhutao.my.eu.org/musixmatch/lyrics-search?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`;
-    let apiUrl2 = `https://lyrics.lewdhutao.my.eu.org/musixmatch/lyrics-search?title=${encodeURIComponent(artist)}&artist=${encodeURIComponent(title)}`;
-    
-    try {
-        let response = await Axios.get(apiUrl1);
-        if (response.data && response.data.lyrics) {
-            return response.data;
-        }
+// Fungsi untuk mencoba pencarian dengan berbagai kombinasi
+async function fetchLyrics(title, artist, fullText) {
+    const attempts = [
+        { title: title, artist: artist, desc: 'Kombinasi awal' },
+        { title: artist, artist: title, desc: 'Kombinasi terbalik' },
+        { title: fullText, artist: '', desc: 'Seluruh input sebagai title' }
+    ];
 
-        console.log('Pencarian pertama gagal, mencoba format terbalik...');
+    for (const attempt of attempts) {
+        const apiUrl = `https://lyrics.lewdhutao.my.eu.org/musixmatch/lyrics-search?title=${encodeURIComponent(attempt.title)}&artist=${encodeURIComponent(attempt.artist)}`;
+        console.log(`Mencoba ${attempt.desc}:`, apiUrl);
         
-        // Jika pencarian pertama gagal, coba dengan format terbalik
-        response = await Axios.get(apiUrl2);
-        if (response.data && response.data.lyrics) {
-            return response.data;
+        try {
+            const response = await Axios.get(apiUrl);
+            console.log(`Respons untuk ${attempt.desc}:`, response.data);
+            
+            // Pastikan respons valid dan memiliki lirik
+            if (response.data && response.data.lyrics && response.data.lyrics.trim() && response.data.track_name && response.data.artist_name) {
+                return response.data;
+            } else {
+                console.log(`Hasil tidak valid untuk ${attempt.desc}:`, response.data);
+            }
+        } catch (error) {
+            console.log(`Gagal untuk ${attempt.desc}:`, error.message);
+            if (error.response) {
+                console.log(`Detail error ${attempt.desc}:`, error.response.data);
+            }
         }
-    } catch (error) {
-        console.error('Error fetching lyrics:', error);
     }
 
+    console.log('Semua kombinasi gagal');
     return null;
 }
