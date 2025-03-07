@@ -3,7 +3,7 @@ const config = require('../../config.json');
 module.exports = {
     name: 'join',
     alias: ['joingrup', 'addgrup'],
-    category: 'general',
+    category: 'admin',
     description: 'Menambahkan bot ke grup WhatsApp menggunakan link undangan',
     usage: '!join <link grup WhatsApp>',
     permission: 'user', // Bisa diubah ke 'admin' atau 'owner' jika hanya untuk pengguna tertentu
