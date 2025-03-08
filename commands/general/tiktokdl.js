@@ -5,7 +5,7 @@ module.exports = {
     name: 'tiktok',
     alias: ['tt', 'tikdl'],
     category: 'media',
-    description: 'Download video TikTok tanpa watermark dari URL menggunakan API Dreaded',
+    description: 'Download video TikTok tanpa watermark dari URL',
     usage: '!tiktok <URL TikTok>',
     permission: 'user',
     async execute(sock, msg, args) {
