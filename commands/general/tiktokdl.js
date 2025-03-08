@@ -62,7 +62,7 @@ module.exports = {
                 caption: caption,
                 mimetype: 'video/mp4'
             }, { quoted: msg });
-
+            
             // Hapus file temporary
             fs.unlinkSync(filePath);
 
