@@ -47,11 +47,14 @@ async function getAllUpcomingEvents() {
     let allEvents = [];
     for (const calendar of config.calendars) {
         if (calendar.enabled) {
+            console.log(`Memproses kalender: ${calendar.name}`);
             const events = await getUpcomingEventsFromCalendar(calendar);
+            console.log(`Jumlah event dari ${calendar.name}:`, events.length);
             allEvents = allEvents.concat(events);
         }
     }
-    allEvents.sort((a, b) => a.start.valueOf() - b.start.valueOf()); // Urutkan semua acara
+    allEvents.sort((a, b) => a.start.valueOf() - b.start.valueOf());
+    console.log("Total upcoming events:", allEvents.length);
     return allEvents;
 }
 

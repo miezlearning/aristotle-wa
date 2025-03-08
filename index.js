@@ -14,6 +14,7 @@ require('dotenv').config();
 
 let sock = null;
 let nextReminderTimeout = null;
+let cronJob = null;
 global.searchResults = {};
 
 
@@ -103,16 +104,18 @@ async function connectToWhatsApp() {
             loadReminders();
             sortReminders();
             scheduleNextReminderCheck();
-            loadScheduledMessages(); // Load scheduled messages
-            setInterval(() => {
-                processScheduledMessages(sock); // Process scheduled messages every minute
-            }, 60000);
-    
-            // Tetap pertahankan cron untuk notifikasi kalender
-            cron.schedule(config.cronSchedule, () => checkAndSendNotifications(sock), {
+            loadScheduledMessages();
+            setInterval(() => processScheduledMessages(sock), 60000);
+
+            // Perbarui cron job dengan sock yang baru
+            if (cronJob) {
+                cronJob.stop(); // Hentikan cron lama
+            }
+            cronJob = cron.schedule(config.cronSchedule, () => checkAndSendNotifications(sock), {
                 scheduled: true,
                 timezone: config.timezone
             });
+            console.log('Cron job diatur ulang dengan status koneksi open');
         }
     });
 
@@ -342,37 +345,38 @@ async function processReminders() {
 async function checkAndSendNotifications(sock) {
     try {
         const upcomingEvents = await getAllUpcomingEvents();
+        console.log("Upcoming Events:", upcomingEvents);
         const now = moment().tz(config.timezone);
 
-        for(const event of upcomingEvents) {
+        for (const event of upcomingEvents) {
             const timeUntilEvent = moment(event.start).diff(now, 'minutes');
             const notificationMinutesBefore = event.notificationMinutesBefore;
 
-            if(timeUntilEvent <= notificationMinutesBefore && timeUntilEvent > 3) {
+            if (timeUntilEvent <= notificationMinutesBefore && timeUntilEvent > 3) {
                 const message = `🔔 Pengingat: Acara dari kalender *${event.calendarName}* akan segera dimulai!\n\n${formatEventMessage(event)}`;
 
-                for(const groupId of event.allowedGroups) {
+                for (const groupId of event.allowedGroups) {
                     try {
                         await sock.sendMessage(groupId, { text: message });
-                    } catch(error) {
+                    } catch (error) {
                         console.error(`Gagal mengirim notifikasi ke grup ${groupId}:`, error);
                     }
                 }
             }
 
-            if(timeUntilEvent <= 3 && timeUntilEvent > 0) {
+            if (timeUntilEvent <= 3 && timeUntilEvent > 0) {
                 const reminderMessage = `⏰ Acara dari kalender *${event.calendarName}* akan segera dimulai dalam ${timeUntilEvent} menit!\n\n${formatEventMessage(event)}`;
 
-                for(const groupId of event.allowedGroups) {
+                for (const groupId of event.allowedGroups) {
                     try {
                         await sock.sendMessage(groupId, { text: reminderMessage });
-                    } catch(error) {
+                    } catch (error) {
                         console.error(`Gagal mengirim notifikasi ke grup ${groupId}:`, error);
                     }
                 }
             }
         }
-    } catch(error) {
+    } catch (error) {
         console.error('Error dalam checkAndSendNotifications:', error);
     }
 }
@@ -388,4 +392,24 @@ async function startBot() {
     }
 }
 
-startBot();
+cronJob = cron.schedule(config.cronSchedule, () => {
+    if (sock && sock.connectionState === 'open') {
+        console.log("Cron triggered at:", moment().tz(config.timezone).format());
+        checkAndSendNotifications(sock);
+    } else {
+        console.log("Cron skipped: Sock not open");
+    }
+}, {
+    scheduled: true,
+    timezone: config.timezone
+});
+
+startBot().then(() => {
+    setTimeout(() => {
+        if (sock && sock.connectionState === 'open') {
+            checkAndSendNotifications(sock);
+        } else {
+            console.log("Sock belum open, coba lagi nanti");
+        }
+    }, 5000);
+});
