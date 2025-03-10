@@ -1,9 +1,8 @@
 const fetch = require('node-fetch');
 const cheerio = require('cheerio');
 const tough = require('tough-cookie');
-const fetchCookie = require('fetch-cookie').default; // Perbaikan impor
+const fetchCookie = require('fetch-cookie').default;
 
-// Inisialisasi cookie jar
 const cookieJar = new tough.CookieJar();
 const fetchWithCookies = fetchCookie(fetch, cookieJar);
 
@@ -61,7 +60,7 @@ module.exports = {
             const formData = new URLSearchParams({
                 referer: 'https://indown.io/insta-stories-download/id',
                 locale: 'id',
-                p: '125.160.125.62', // IP dummy, sesuaikan jika perlu
+                p: '125.160.125.62',
                 _token: token,
                 link: profileUrl
             });
@@ -108,8 +107,13 @@ module.exports = {
             }
 
             console.log('[DEBUG] Jumlah Stories ditemukan:', storyUrls.length);
+
+            // Langkah 4: Unduh satu URL dengan fallback
             let processedCount = 0;
-            for (const story of storyUrls.slice(0, 5)) {
+            for (const story of storyUrls) {
+                // Prioritaskan URL Instagram langsung
+                if (!story.url.includes('instagram.f')) continue; // Lewati URL non-Instagram
+
                 console.log('[DEBUG] Mengunduh:', story.url);
                 const mediaResponse = await fetch(story.url, {
                     headers: {
@@ -119,25 +123,28 @@ module.exports = {
 
                 if (!mediaResponse.ok) {
                     console.error(`[DEBUG] Gagal mengunduh: ${story.url} - ${mediaResponse.status}`);
-                    continue;
+                    continue; // Coba URL berikutnya jika gagal
                 }
 
                 const mediaBuffer = Buffer.from(await mediaResponse.arrayBuffer());
-                if (mediaBuffer.length === 0) continue;
+                if (mediaBuffer.length === 0) {
+                    console.error(`[DEBUG] Buffer kosong untuk: ${story.url}`);
+                    continue;
+                }
 
                 const mediaType = story.type;
-                const fileName = `${username}_story_${processedCount + 1}.${mediaType === 'video' ? 'mp4' : 'jpg'}`;
+                const fileName = `${username}_story.${mediaType === 'video' ? 'mp4' : 'jpg'}`;
                 const mimetype = mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
 
                 await sock.sendMessage(msg.key.remoteJid, {
                     [mediaType]: mediaBuffer,
                     mimetype,
-                    caption: `*Instagram Story*\n👤 Username: ${username}\n📌 Tipe: ${mediaType === 'video' ? 'Video' : 'Foto'}\n*𝙿𝙾𝚆𝙴𝚁𝙴𝙳 𝙱𝚈 © 𝚃𝙾𝙷𝙸𝙳-𝙰𝙸*`,
+                    caption: `*Instagram Story*\n👤 Username: ${username}\n📌 Tipe: ${mediaType === 'video' ? 'Video' : 'Foto'}`,
                     fileName
                 }, { quoted: msg });
 
                 processedCount++;
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                break; // Keluar dari loop setelah satu berhasil
             }
 
             if (processedCount === 0) {
