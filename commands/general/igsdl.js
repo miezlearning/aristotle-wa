@@ -16,7 +16,7 @@ module.exports = {
         try {
             if (!args[0]) {
                 return await sock.sendMessage(msg.key.remoteJid, {
-                    text: '✳️ Masukkan username Instagram setelah perintah\nContoh: !igsdl nurulvta'
+                    text: '✳️ Masukkan username Instagram setelah perintah\nContoh: !igsdl miezlipp'
                 });
             }
 
@@ -88,33 +88,37 @@ module.exports = {
             const html = await response.text();
             const $ = cheerio.load(html);
 
-            // Langkah 3: Ambil URL Stories dari hasil
+            // Langkah 3: Ambil semua URL Stories hanya dari Server 2 (Instagram)
             console.log('[DEBUG] Mengambil URL Stories');
-            const storyUrls = [];
-            $('#result video source').each((i, elem) => {
-                const url = $(elem).attr('src');
-                if (url) storyUrls.push({ url, type: 'video' });
-            });
-            $('#result a[href]').each((i, elem) => {
-                const url = $(elem).attr('href');
-                if (url && url.includes('instagram.f')) {
-                    storyUrls.push({ url, type: 'video' });
+            const stories = [];
+            const seenUrls = new Set();
+
+            $('#result a[href]').each((i, link) => {
+                const url = $(link).attr('href');
+                // Hanya ambil URL yang langsung dari instagram.f*, bukan d2.indown.io
+                if (url && url.startsWith('https://instagram.f') && !seenUrls.has(url)) {
+                    const type = url.includes('.mp4') ? 'video' : url.includes('.jpg') ? 'image' : 'unknown';
+                    if (type !== 'unknown') {
+                        stories.push({ url, type });
+                        seenUrls.add(url);
+                    }
                 }
             });
 
-            if (!storyUrls.length) {
-                throw new Error('Tidak ada Story yang ditemukan untuk username ini');
+            if (!stories.length) {
+                console.log('[DEBUG] HTML result:', html.slice(0, 1000)); // Log HTML untuk debugging
+                throw new Error('Tidak ada Story yang ditemukan dengan URL Instagram');
             }
 
-            console.log('[DEBUG] Jumlah Stories ditemukan:', storyUrls.length);
+            console.log('[DEBUG] Jumlah Stories ditemukan:', stories.length);
+            stories.forEach((story, i) => {
+                console.log(`[DEBUG] Story ${i + 1}: ${story.url} (${story.type})`);
+            });
 
-            // Langkah 4: Unduh satu URL dengan fallback
+            // Langkah 4: Unduh semua Stories
             let processedCount = 0;
-            for (const story of storyUrls) {
-                // Prioritaskan URL Instagram langsung
-                if (!story.url.includes('instagram.f')) continue; // Lewati URL non-Instagram
-
-                console.log('[DEBUG] Mengunduh:', story.url);
+            for (const story of stories) {
+                console.log(`[DEBUG] Mengunduh Story ${processedCount + 1}: ${story.url}`);
                 const mediaResponse = await fetch(story.url, {
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -122,18 +126,18 @@ module.exports = {
                 });
 
                 if (!mediaResponse.ok) {
-                    console.error(`[DEBUG] Gagal mengunduh: ${story.url} - ${mediaResponse.status}`);
-                    continue; // Coba URL berikutnya jika gagal
+                    console.error(`[DEBUG] Gagal mengunduh Story ${processedCount + 1}: ${story.url} - ${mediaResponse.status}`);
+                    continue;
                 }
 
                 const mediaBuffer = Buffer.from(await mediaResponse.arrayBuffer());
                 if (mediaBuffer.length === 0) {
-                    console.error(`[DEBUG] Buffer kosong untuk: ${story.url}`);
+                    console.error(`[DEBUG] Buffer kosong untuk Story ${processedCount + 1}: ${story.url}`);
                     continue;
                 }
 
                 const mediaType = story.type;
-                const fileName = `${username}_story.${mediaType === 'video' ? 'mp4' : 'jpg'}`;
+                const fileName = `${username}_story_${processedCount + 1}.${mediaType === 'video' ? 'mp4' : 'jpg'}`;
                 const mimetype = mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
 
                 await sock.sendMessage(msg.key.remoteJid, {
@@ -144,7 +148,7 @@ module.exports = {
                 }, { quoted: msg });
 
                 processedCount++;
-                break; // Keluar dari loop setelah satu berhasil
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Delay antar unduhan
             }
 
             if (processedCount === 0) {
