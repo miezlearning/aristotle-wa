@@ -174,7 +174,7 @@ module.exports = {
         }
         else {
                return await sock.sendMessage(msg.key.remoteJid, {
-                   text: 'Tidak ada command'
+                   text: 'Tidak ada command', quote: msg.message
                });
            }
     }
