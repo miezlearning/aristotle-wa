@@ -9,6 +9,23 @@ const { getAllUpcomingEvents, formatEventMessage } = require('./utils/calendar')
 const { loadReminders, reminders, saveReminders, scheduleNextReminder, sortReminders } = require('./utils/reminderUtils');
 const { loadScheduledMessages, processScheduledMessages } = require('./utils/scheduledMessageUtils'); // Import
 const { getAutoResponsesForGroup } = require('./utils/autoResponseUtils'); // Import fungsi utility
+const levenshtein = require('fast-levenshtein'); // Install dengan: npm install fast-levenshtein
+
+
+function findClosestCommand(input, commands) {
+    let minDistance = Infinity;
+    let closestCommand = null;
+    
+    for (const cmd of commands.keys()) {
+        const distance = levenshtein.get(input, cmd);
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestCommand = cmd;
+        }
+    }
+    
+    return closestCommand;
+}
 
 require('dotenv').config();
 
@@ -36,16 +53,19 @@ async function updateBotStatus(status) {
 }
 
 async function connectToWhatsApp() {
-    await updateBotStatus('offline'); // Set status awal ke offline saat connectToWhatsApp dipanggil
 
     const { state, saveCreds } = await useMultiFileAuthState('auth_info', { legacy: true });
 
     const connection = makeWASocket({
         printQRInTerminal: true,
         auth: state,
-        logger: pino({ level: 'silent' })
+        logger: pino({ level: 'debug' }),
+        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 60000,
+        phoneResponseTimeMs: 60000,
+        browser: ['Bot Aristotle', 'Chrome', '10.0'], // Use consistent browser signature
+        syncFullHistory: false // Disable full history sync which can cause issues
     });
-
     // Memuat semua perintah
     const commands = await loadCommands();
     
@@ -65,57 +85,71 @@ async function connectToWhatsApp() {
     
         if (status === 'close') {
             const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-    
+
             console.log('Koneksi terputus:', lastDisconnect.error);
-    
+
             try {
                 await updateBotStatus('offline');
             } catch (error) {
                 console.error('Gagal update status saat disconnect:', error);
             }
-    
+
             if (shouldReconnect) {
-                console.log('Mencoba reconnect...');
-                let retryCount = 0;
-                const maxRetries = 5;
-                const reconnect = async () => {
-                    try {
-                        sock = await connectToWhatsApp();
-                        await updateBotStatus('online');
-                        console.log('Reconnect berhasil!');
-                    } catch (error) {
-                        console.error(`Gagal reconnect (percobaan ${retryCount + 1}/${maxRetries}):`, error);
-                        if (retryCount < maxRetries) {
-                            retryCount++;
-                            const delay = Math.min(1000 * Math.pow(2, retryCount), 30000); // Exponential backoff max 30 detik
-                            console.log(`Menunggu ${delay}ms sebelum mencoba lagi...`);
-                            setTimeout(reconnect, delay);
-                        } else {
-                            console.log('Reconnect gagal setelah maksimum percobaan.');
+                console.log('Mencoba reconnect dalam 20 detik...'); // Pesan log diubah
+                setTimeout(async () => { // Tetap menggunakan setTimeout
+                    console.log('Melakukan reconnect...');
+                    let retryCount = 0;
+                    const maxRetries = 5;
+                    const reconnect = async () => {
+                        try {
+                            sock = await connectToWhatsApp();
+                            await updateBotStatus('online');
+                            console.log('Reconnect berhasil!');
+                        } catch (error) {
+                            console.error(`Gagal reconnect (percobaan ${retryCount + 1}/${maxRetries}):`, error);
+                            if (retryCount < maxRetries) {
+                                retryCount++;
+                                const delay = Math.min(2000 * Math.pow(2, retryCount), 30000) // Exponential backoff max 30 detik
+                                console.log(`Menunggu ${delay}ms sebelum mencoba lagi...`);
+                                setTimeout(reconnect, delay);
+                            } else {
+                                console.log('Reconnect gagal setelah maksimum percobaan.');
+                            }
                         }
-                    }
-                };
-                await reconnect();
+                    };
+                    await reconnect();
+                }, 20000); // Delay menjadi 20 detik (atau coba 30000 untuk 30 detik)
             }
         } else if (status === 'open') {
             console.log('Bot berhasil terkoneksi!');
             sock = connection;
-            await updateBotStatus('online');
-            loadReminders();
-            sortReminders();
-            scheduleNextReminderCheck();
-            loadScheduledMessages();
-            setInterval(() => processScheduledMessages(sock), 60000);
-
-            // Perbarui cron job dengan sock yang baru
-            if (cronJob) {
-                cronJob.stop(); // Hentikan cron lama
-            }
-            cronJob = cron.schedule(config.cronSchedule, () => checkAndSendNotifications(sock), {
-                scheduled: true,
-                timezone: config.timezone
-            });
-            console.log('Cron job diatur ulang dengan status koneksi open');
+            
+            // Wait a moment to ensure connection is stable before changing status
+            setTimeout(async () => {
+                try {
+                    await updateBotStatus('online');
+                    console.log('Status berhasil diubah menjadi online');
+                    
+                    // Initialize other components only after status is set
+                    loadReminders();
+                    sortReminders();
+                    scheduleNextReminderCheck();
+                    loadScheduledMessages();
+                    setInterval(() => processScheduledMessages(sock), 60000);
+                    
+                    // Update cron job
+                    if (cronJob) {
+                        cronJob.stop();
+                    }
+                    cronJob = cron.schedule(config.cronSchedule, () => checkAndSendNotifications(sock), {
+                        scheduled: true,
+                        timezone: config.timezone
+                    });
+                    console.log('Cron job diatur ulang dengan status koneksi open');
+                } catch (error) {
+                    console.error('Gagal mengatur komponen setelah koneksi:', error);
+                }
+            }, 5000);
         }
     });
 
@@ -250,22 +284,37 @@ async function connectToWhatsApp() {
         }
 
         // Eksekusi command (tetap sama)
-        const args = text.slice(1).trim().split(/ +/);
-        const command = args.shift().toLowerCase();
-        try {
-            const cmd = commands.get(command);
-                cmd.client = sock;
-            if(cmd) {
-                console.log(`Eksekusi command: ${command}`);
-                await cmd.execute(connection, msg, args);
-            }
-        } catch(error) {
-            console.error('Error eksekusi command:', error);
-            await connection.sendMessage(msg.key.remoteJid, {
-                text: '❌ Gagal menjalankan perintah',
-                quoted: msg // Tambahkan quoted message agar error reply ke pesan user
-            });
+        // Eksekusi command (tetap sama)
+const args = text.slice(1).trim().split(/ +/);
+const command = args.shift().toLowerCase();
+
+try {
+    const cmd = commands.get(command);
+    
+    if (!cmd) {
+        const suggestion = findClosestCommand(command, commands);
+        let message = '❌ Perintah tidak ditemukan!';
+        
+        if (suggestion) {
+            message += `\n🔍 Mungkin yang kamu maksud: *${suggestion}*`;
         }
+        
+        await connection.sendMessage(msg.key.remoteJid, { text: message, quoted: msg });
+        return;
+    }
+    
+    cmd.client = sock;
+    console.log(`Eksekusi command: ${command}`);
+    await cmd.execute(connection, msg, args);
+    
+} catch (error) {
+    console.error('Error eksekusi command:', error);
+    await connection.sendMessage(msg.key.remoteJid, {
+        text: '❌ Gagal menjalankan perintah',
+        quoted: msg
+    });
+}
+
     });
 
     return connection;
@@ -384,8 +433,36 @@ async function checkAndSendNotifications(sock) {
 // Fungsi utama
 async function startBot() {
     try {
-        await connectToWhatsApp();
+        sock = await connectToWhatsApp();
         console.log('Bot berjalan!');
+        
+        // Wait for connection to be fully open
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        const checkConnection = () => {
+            return new Promise((resolve) => {
+                const interval = setInterval(() => {
+                    attempts++;
+                    console.log(`Memeriksa koneksi... (${attempts}/${maxAttempts})`);
+                    
+                    if (sock && sock.connectionState === 'open') {
+                        clearInterval(interval);
+                        console.log('Koneksi terbuka sepenuhnya!');
+                        resolve(true);
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(interval);
+                        console.log('Gagal menunggu koneksi terbuka setelah beberapa percobaan.');
+                        resolve(false);
+                    }
+                }, 5000); // Check every 5 seconds
+            });
+        };
+        
+        const isConnected = await checkConnection();
+        if (isConnected) {
+            checkAndSendNotifications(sock);
+        }
     } catch(error) {
         console.error('Gagal memulai bot:', error);
         process.exit(1);
