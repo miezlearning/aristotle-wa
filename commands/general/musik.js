@@ -10,71 +10,112 @@ module.exports = {
     permission: 'user',
     async execute(sock, msg, args) {
         console.log('Perintah musik dipanggil:', JSON.stringify(msg, null, 2));
-        try {
-            if (!args.length) {
-                return await sock.sendMessage(msg.key.remoteJid, {
-                    text: 'Kirim judul lagu atau URL YouTube dengan perintah !musik\nContoh: !musik Happy Asmara Full Album'
-                });
-            }
-
-            await sock.sendMessage(msg.key.remoteJid, {
-                react: { text: "⏳", key: msg.key }
+        
+        if (!args.length) {
+            return await sock.sendMessage(msg.key.remoteJid, {
+                text: '🎵 Masukkan judul lagu atau URL YouTube setelah !musik\nContoh: !musik Wave to Earth Homesick'
             });
+        }
 
+        const processingMsg = await sock.sendMessage(msg.key.remoteJid, {
+            text: `🔎 Sedang cari lagu yang kamu cari... \`${args.join(' ').trim()}\``,
+            react: { text: "⏳", key: msg.key }
+        });
+
+        try {
             const query = args.join(' ').trim();
-            let videoUrl = query;
+            let youtubeUrl = query;
 
-            if (!query.includes('youtube.com') && !query.includes('youtu.be')) {
+            // Cari video jika bukan URL
+            if (!query.match(/youtube\.com|youtu\.be/)) {
                 console.log('Mencari lagu:', query);
-                await sock.sendMessage(msg.key.remoteJid, { text: '🔍 Mencari lagu...' });
-                const searchResults = await yts(query);
-                if (!searchResults.videos.length) {
-                    return await sock.sendMessage(msg.key.remoteJid, { text: '❌ Tidak ada hasil untuk pencarian Anda.' });
+                const results = await yts(query);
+                if (!results.videos.length) {
+                    throw new Error('Tidak ada video yang ditemukan');
                 }
-                videoUrl = searchResults.videos[0].url;
-                console.log('URL ditemukan:', videoUrl);
+                youtubeUrl = results.videos[0].url;
             }
 
-            console.log('Mengambil audio dari API...');
-            const apiUrl = `https://api.agatz.xyz/api/ytplay?message=${encodeURIComponent(query)}`;
-            const response = await Axios.get(apiUrl);
+            const videoInfo = (await yts(youtubeUrl)).videos[0];
+            if (!videoInfo) throw new Error('Informasi video tidak tersedia');
 
-            // Cek apakah respons valid
-            if (!response.data || response.data.status !== 200 || !response.data.data.success) {
-                return await sock.sendMessage(msg.key.remoteJid, {
-                    text: '❌ Gagal mengambil audio. Coba lagi nanti.'
-                });
+            // Daftar API yang akan dicoba
+            const apiList = [
+                `https://apis.davidcyriltech.my.id/youtube/mp3?url=${youtubeUrl}`,
+                `https://api.ryzendesu.vip/api/downloader/ytmp3?url=${youtubeUrl}`,
+                `https://api.akuari.my.id/downloader/youtubeaudio?link=${youtubeUrl}`
+            ];
+
+            let apiResponse;
+            for (const api of apiList) {
+                try {
+                    console.log(`Mencoba API: ${api}`);
+                    apiResponse = await Axios.get(api);
+                    const data = apiResponse.data;
+                    if (data.status === 200 || data.success) {
+                        console.log('API berhasil:', api);
+                        break;
+                    }
+                } catch (err) {
+                    console.error(`API gagal: ${api} - ${err.message}`);
+                    continue;
+                }
             }
 
-            // Ambil URL audio dari respons
-            const downloadUrl = response.data.data.audio.url;
-            if (!downloadUrl) {
-                return await sock.sendMessage(msg.key.remoteJid, {
-                    text: '❌ Tidak dapat menemukan URL unduhan dalam respons API.'
-                });
+            if (!apiResponse || !apiResponse.data) {
+                throw new Error('Semua server gagal merespons');
             }
 
-            console.log('URL unduhan:', downloadUrl);
+            const responseData = apiResponse.data.result || apiResponse.data;
+            const audioLink = responseData.downloadUrl || responseData.url;
+            if (!audioLink) throw new Error('URL audio tidak ditemukan');
 
-            console.log('Mengirim audio...');
+            const songDetails = {
+                title: responseData.title || videoInfo.title,
+                artist: responseData.author || videoInfo.author.name,
+                thumbnail: responseData.image || videoInfo.thumbnail
+            };
+
+            // Caption yang lebih jelas
+            const captionText = `
+🎸 *ada nih lagunya...*
+──────────────────
+🎶 *Judul*: ${songDetails.title}
+🎤 *Artis*: ${songDetails.artist}
+⏱ *Durasi*: ${videoInfo.timestamp}
+👀 *Views*: ${videoInfo.views.toLocaleString()}
+🌐 *Link*: ${youtubeUrl}
+──────────────────
+            `.trim();
+
+            // Kirim audio dengan caption dan thumbnail
             await sock.sendMessage(msg.key.remoteJid, {
-                audio: { url: downloadUrl },
+                audio: { url: audioLink },
                 mimetype: 'audio/mpeg',
-                ptt: false
+                ptt: false,
+                caption: captionText,
+                contextInfo: {
+                    externalAdReply: {
+                        title: songDetails.title,
+                        body: songDetails.artist,
+                        thumbnailUrl: songDetails.thumbnail,
+                        sourceUrl: youtubeUrl,
+                        mediaType: 1,
+                        renderLargerThumbnail: true
+                    }
+                }
             }, { quoted: msg });
 
-            console.log('Audio terkirim');
+            // Ganti reaksi menjadi sukses
             await sock.sendMessage(msg.key.remoteJid, {
-                react: { text: "✅", key: msg.key }
+                react: { text: "✅", key: processingMsg.key }
             });
 
         } catch (error) {
-            console.error('Error processing musik command:', error);
+            console.error('Error dalam perintah musik:', error);
             await sock.sendMessage(msg.key.remoteJid, {
-                react: { text: "⚠️", key: msg.key }
-            });
-            await sock.sendMessage(msg.key.remoteJid, {
-                text: '❌ Gagal memproses perintah: ' + error.message
+                text: `🚨 Gagal memproses lagu: ${error.message}`,
+                react: { text: "⚠️", key: processingMsg.key }
             });
         }
     }
