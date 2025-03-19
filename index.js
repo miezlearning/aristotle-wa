@@ -481,12 +481,4 @@ cronJob = cron.schedule(config.cronSchedule, () => {
     timezone: config.timezone
 });
 
-startBot().then(() => {
-    setTimeout(() => {
-        if (sock && sock.connectionState === 'open') {
-            checkAndSendNotifications(sock);
-        } else {
-            console.log("Sock belum open, coba lagi nanti");
-        }
-    }, 5000);
-});
+startBot()

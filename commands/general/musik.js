@@ -11,7 +11,6 @@ module.exports = {
     async execute(sock, msg, args) {
         console.log('Perintah musik dipanggil:', JSON.stringify(msg, null, 2));
         try {
-            // Cek apakah ada argumen
             if (!args.length) {
                 return await sock.sendMessage(msg.key.remoteJid, {
                     text: 'Kirim judul lagu atau URL YouTube dengan perintah !musik\nContoh: !musik Happy Asmara Full Album'
@@ -25,7 +24,6 @@ module.exports = {
             const query = args.join(' ').trim();
             let videoUrl = query;
 
-            // Jika bukan URL YouTube, cari di yt-search
             if (!query.includes('youtube.com') && !query.includes('youtu.be')) {
                 console.log('Mencari lagu:', query);
                 await sock.sendMessage(msg.key.remoteJid, { text: '🔍 Mencari lagu...' });
@@ -37,21 +35,27 @@ module.exports = {
                 console.log('URL ditemukan:', videoUrl);
             }
 
-            // Panggil API untuk mendapatkan URL unduhan audio
             console.log('Mengambil audio dari API...');
-            const apiUrl = `https://apis.davidcyriltech.my.id/youtube/mp3?url=${videoUrl}`;
+            const apiUrl = `https://api.agatz.xyz/api/ytplay?message=${encodeURIComponent(query)}`;
             const response = await Axios.get(apiUrl);
 
-            if (!response.data || !response.data.success || !response.data.result.downloadUrl) {
+            // Cek apakah respons valid
+            if (!response.data || response.data.status !== 200 || !response.data.data.success) {
                 return await sock.sendMessage(msg.key.remoteJid, {
                     text: '❌ Gagal mengambil audio. Coba lagi nanti.'
                 });
             }
 
-            const downloadUrl = response.data.result.downloadUrl;
+            // Ambil URL audio dari respons
+            const downloadUrl = response.data.data.audio.url;
+            if (!downloadUrl) {
+                return await sock.sendMessage(msg.key.remoteJid, {
+                    text: '❌ Tidak dapat menemukan URL unduhan dalam respons API.'
+                });
+            }
+
             console.log('URL unduhan:', downloadUrl);
 
-            // Kirim audio ke pengguna
             console.log('Mengirim audio...');
             await sock.sendMessage(msg.key.remoteJid, {
                 audio: { url: downloadUrl },
