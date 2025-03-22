@@ -48,7 +48,6 @@ module.exports = {
         if (args[startIndex] && moment(args[startIndex], 'DD-MM-YYYY', true).isValid()) {
             const parsedDate = moment.tz(args[startIndex], 'DD-MM-YYYY', config.timezone);
             
-            // Atur tanggal TANPA mengubah waktu yang sudah di-set sebelumnya
             reminderTime.set({
                 year: parsedDate.year(),
                 month: parsedDate.month(),
@@ -61,7 +60,6 @@ module.exports = {
         if (args[startIndex] && /^([01]?[0-9]|2[0-3])[\.\:][0-5][0-9]$/.test(args[startIndex])) {
             const [hours, minutes] = args[startIndex].replace('.', ':').split(':');
             
-            // Atur waktu TANPA mengubah tanggal yang sudah di-set
             reminderTime.set({
                 hour: parseInt(hours),
                 minute: parseInt(minutes)
@@ -105,10 +103,6 @@ module.exports = {
         reminders.get(groupId).push(reminder);
         saveReminders();
         sortReminders();
-        scheduleNextReminder(sock); // <-- INI YANG DIPERBAIKI
-        
-      
-
-        
+        scheduleNextReminder(sock); // Sudah benar, sekarang bisa akses processReminders
     }
 };

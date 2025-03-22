@@ -21,6 +21,7 @@
     "html2canvas": "^1.4.1",
     "jimp": "^0.16.13",
     "jsdom": "^26.0.0",
+    "minecraft-server-util": "^5.4.4",
     "moment-timezone": "^0.5.43",
     "nayan-videos-downloader": "^0.1.5",
     "node-cron": "^3.0.3",

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+
 let nextTimeout = null; // Menyimpan reference timeout
 
 // Lokasi file penyimpanan
@@ -51,6 +52,49 @@ function sortReminders() {
     }
 }
 
+// Proses pengingat yang sudah waktunya
+async function processReminders(sock) {
+    console.log('Memproses reminders...');
+    const now = Date.now();
+    let needsSave = false;
+
+    for (const [groupId, reminderList] of reminders.entries()) {
+        const activeReminders = [];
+
+        for (const reminder of reminderList) {
+            if (now >= reminder.timestamp) {
+                try {
+                    // Kirim pesan
+                    await sock.sendMessage(groupId, {
+                        text: `⏰ Pengingat dari @${reminder.creator.split('@')[0]}:\n${reminder.message}`,
+                        mentions: [reminder.creator, ...reminder.mentions]
+                    });
+                    console.log(`Reminder ${reminder.id} terkirim`);
+                    needsSave = true;
+                } catch (error) {
+                    console.error(`Gagal mengirim reminder ${reminder.id}:`, error);
+                    activeReminders.push(reminder);
+                }
+            } else {
+                activeReminders.push(reminder);
+            }
+        }
+
+        // Update daftar reminder
+        if (activeReminders.length > 0) {
+            reminders.set(groupId, activeReminders);
+        } else {
+            reminders.delete(groupId);
+        }
+    }
+
+    if (needsSave) {
+        saveReminders();
+        sortReminders();
+        console.log('Data JSON diperbarui');
+    }
+}
+
 // Jadwalkan timeout untuk reminder terdekat
 function scheduleNextReminder(sock) {
     // Cari semua reminder dari semua grup
@@ -87,5 +131,6 @@ module.exports = {
     loadReminders,
     saveReminders,
     sortReminders,
-    scheduleNextReminder
-}; 
+    scheduleNextReminder,
+    processReminders // Ekspor fungsi ini
+};

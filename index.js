@@ -66,12 +66,14 @@ async function connectToWhatsApp() {
         browser: ['Bot Aristotle', 'Chrome', '10.0'], // Use consistent browser signature
         syncFullHistory: false // Disable full history sync which can cause issues
     });
+
+
     // Memuat semua perintah
     const commands = await loadCommands();
     
-    // Inisialisasi reminders
     loadReminders();
     sortReminders();
+    scheduleNextReminder(connection);
 
     let connectionState = 'disconnected';
 
@@ -133,7 +135,7 @@ async function connectToWhatsApp() {
                     // Initialize other components only after status is set
                     loadReminders();
                     sortReminders();
-                    scheduleNextReminderCheck();
+                    scheduleNextReminder(sock);
                     loadScheduledMessages();
                     setInterval(() => processScheduledMessages(sock), 60000);
                     
