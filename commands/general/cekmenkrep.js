@@ -1,10 +1,10 @@
-const util = require('minecraft-server-util');
+const axios = require('axios');
 
 module.exports = {
     name: 'mcserver',
     alias: ['minecraft', 'checkmc'],
-    category: 'general',
-    description: 'Mengecek status server Minecraft berdasarkan IP.',
+    category: 'utility',
+    description: 'Mengecek status server Minecraft berdasarkan IP menggunakan mcstatus.io.',
     usage: '!mcserver <ip>[:port] (contoh: !mcserver play.hypixel.net)',
     permission: 'user',
     async execute(sock, msg, args) {
@@ -18,52 +18,90 @@ module.exports = {
         }
 
         // Ambil IP dan port (jika ada)
-        const input = args[0].split(':');
-        const host = input[0];
-        const port = input[1] ? parseInt(input[1]) : 25565; // Port default Minecraft
-
-        // Validasi port
-        if (isNaN(port) || port < 1 || port > 65535) {
-            return await sock.sendMessage(groupId, {
-                text: '❌ Port tidak valid! Gunakan port antara 1-65535.'
-            });
-        }
+        const input = args[0];
+        const [host, port] = input.split(':');
+        const address = port ? `${host}:${port}` : host;
 
         // Beri reaksi loading
         await sock.sendMessage(groupId, { react: { text: "⏳", key: msg.key } });
 
         try {
-            // Ping server Minecraft
-            const status = await util.status(host, port, {
-                timeout: 5000 // Timeout 5 detik
-            });
+            // Request status server
+            const statusUrl = `https://api.mcstatus.io/v2/status/java/${encodeURIComponent(address)}`;
+            const statusResponse = await axios.get(statusUrl);
+            const statusData = statusResponse.data;
+
+            // Cek apakah server online
+            if (!statusData.online) {
+                await sock.sendMessage(groupId, {
+                    text: `❌ Server *${address}* sedang offline atau tidak ditemukan!`
+                });
+                await sock.sendMessage(groupId, { react: { text: "⚠️", key: msg.key } });
+                return;
+            }
 
             // Format informasi server
-            const resultText = `✅ *Status Server Minecraft: ${host}:${port}*\n\n` +
-                              `📶 *Latensi:* ${status.roundTripLatency} ms\n` +
-                              `👥 *Pemain:* ${status.players.online}/${status.players.max}\n` +
-                              `🎮 *Versi:* ${status.version.name}\n` +
-                              `🌐 *MOTD:* ${status.motd.clean}\n` +
-                              (status.favicon ? `🖼️ *Favicon:* Ada` : `🖼️ *Favicon:* Tidak ada`);
+            let resultText = `✅ *Status Server Minecraft: ${address}*\n\n` +
+                            `📡 *Host:* ${statusData.host}\n` +
+                            `🔌 *Port:* ${statusData.port}\n` +
+                            `🌐 *IP:* ${statusData.ip_address || 'Tidak tersedia'}\n` +
+                            `📶 *Latensi:* ${statusData.ping} ms\n` +
+                            `👥 *Pemain:* ${statusData.players.online}/${statusData.players.max}\n` +
+                            `🎮 *Versi:* ${statusData.version.name_clean} (Protokol: ${statusData.version.protocol})\n` +
+                            `📝 *MOTD:* ${statusData.motd.clean}\n` +
+                            (statusData.eula_blocked ? `⚠️ *EULA Blocked:* Ya` : `✅ *EULA Blocked:* Tidak`) + `\n` +
+                            (statusData.icon ? `🖼️ *Icon:* Ada` : `🖼️ *Icon:* Tidak ada`);
 
-            // Kirim hasil
+            // Tambah info mod jika ada
+            if (statusData.mods && statusData.mods.length > 0) {
+                resultText += `\n\n🔧 *Mod (${statusData.mods.length}):*`;
+                statusData.mods.forEach(mod => {
+                    resultText += `\n- ${mod.name} (${mod.version || 'Versi tidak tersedia'})`;
+                });
+            }
+
+            // Tambah info plugin jika ada
+            if (statusData.plugins && statusData.plugins.length > 0) {
+                resultText += `\n\n🔌 *Plugin (${statusData.plugins.length}):*`;
+                statusData.plugins.forEach(plugin => {
+                    resultText += `\n- ${plugin.name} (${plugin.version || 'Versi tidak tersedia'})`;
+                });
+            }
+
+            // Tambah info software jika ada
+            if (statusData.software) {
+                resultText += `\n\n💾 *Software:* ${statusData.software}`;
+            }
+
+            // Tambah info SRV record jika ada
+            if (statusData.srv_record) {
+                resultText += `\n\n📡 *SRV Record:*\n- Host: ${statusData.srv_record.host}\n- Port: ${statusData.srv_record.port}`;
+            }
+
+            // Request widget gambar dengan parameter
+            const widgetUrl = `https://api.mcstatus.io/v2/widget/java/${encodeURIComponent(address)}?dark=true&rounded=true&transparent=false&timeout=5`;
+            const widgetResponse = await axios.get(widgetUrl, { responseType: 'arraybuffer' });
+            const widgetBuffer = Buffer.from(widgetResponse.data, 'binary');
+
+            // Kirim gambar widget dengan caption
             await sock.sendMessage(groupId, {
-                text: resultText
+                image: widgetBuffer,
+                caption: resultText
             });
 
             // Beri reaksi sukses
             await sock.sendMessage(groupId, { react: { text: "✅", key: msg.key } });
 
         } catch (error) {
-            console.error('Gagal ping server Minecraft:', error);
+            console.error('Gagal memeriksa server Minecraft:', error);
 
             // Tangani error spesifik
             let errorMsg = '❌ Gagal memeriksa server!';
-            if (error.code === 'ENOTFOUND') {
+            if (error.response?.status === 404) {
                 errorMsg = '❌ Server tidak ditemukan! Pastikan IP benar.';
-            } else if (error.code === 'ETIMEDOUT') {
+            } else if (error.code === 'ECONNABORTED') {
                 errorMsg = '❌ Server tidak merespons (timeout)!';
-            } else if (error.message.includes('connect ECONNREFUSED')) {
+            } else if (error.code === 'ECONNREFUSED') {
                 errorMsg = '❌ Koneksi ditolak! Server mungkin offline.';
             }
 
