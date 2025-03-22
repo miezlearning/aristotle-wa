@@ -4,7 +4,7 @@ const axios = require('axios');
 module.exports = {
     name: 'carimhs',
     alias: ['cekmhs', 'pddikti'],
-    category: 'education',
+    category: 'academic',
     description: 'Menampilkan data mahasiswa dari PDDikti berdasarkan keyword pencarian',
     usage: '!carimhs <keyword> [-b <jumlah>]',
     permission: 'user',
