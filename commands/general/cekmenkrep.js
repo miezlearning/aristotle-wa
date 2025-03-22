@@ -31,6 +31,9 @@ module.exports = {
             const statusResponse = await axios.get(statusUrl);
             const statusData = statusResponse.data;
 
+            // Log respons untuk debugging
+            console.log('Respons API mcstatus.io:', JSON.stringify(statusData, null, 2));
+
             // Cek apakah server online
             if (!statusData.online) {
                 await sock.sendMessage(groupId, {
@@ -45,22 +48,32 @@ module.exports = {
                             `📡 *Host:* ${statusData.host}\n` +
                             `🔌 *Port:* ${statusData.port}\n` +
                             `🌐 *IP:* ${statusData.ip_address || 'Tidak tersedia'}\n` +
-                            `📶 *Latensi:* ${statusData.ping} ms\n` +
+                            `📶 *Latensi:* ${statusData.ping} ms (dari API, mungkin tidak akurat)\n` +
                             `👥 *Pemain:* ${statusData.players.online}/${statusData.players.max}\n` +
                             `🎮 *Versi:* ${statusData.version.name_clean} (Protokol: ${statusData.version.protocol})\n` +
                             `📝 *MOTD:* ${statusData.motd.clean}\n` +
                             (statusData.eula_blocked ? `⚠️ *EULA Blocked:* Ya` : `✅ *EULA Blocked:* Tidak`) + `\n` +
                             (statusData.icon ? `🖼️ *Icon:* Ada` : `🖼️ *Icon:* Tidak ada`);
 
-            // Tambah info mod jika ada
+            // Tampilkan sample pemain jika ada
+            if (statusData.players.list && statusData.players.list.length > 0) {
+                resultText += `\n\n👤 *Sample Pemain (${statusData.players.list.length}):*`;
+                statusData.players.list.slice(0, 5).forEach(player => {
+                    resultText += `\n- ${player.name_clean} (UUID: ${player.uuid})`;
+                });
+            }
+
+            // Tampilkan mod jika ada, beri pesan jika kosong
             if (statusData.mods && statusData.mods.length > 0) {
                 resultText += `\n\n🔧 *Mod (${statusData.mods.length}):*`;
                 statusData.mods.forEach(mod => {
                     resultText += `\n- ${mod.name} (${mod.version || 'Versi tidak tersedia'})`;
                 });
+            } else {
+                resultText += `\n\n🔧 *Mod:* Tidak terdeteksi (server mungkin tidak mengexpose data mod)`;
             }
 
-            // Tambah info plugin jika ada
+            // Tampilkan plugin jika ada
             if (statusData.plugins && statusData.plugins.length > 0) {
                 resultText += `\n\n🔌 *Plugin (${statusData.plugins.length}):*`;
                 statusData.plugins.forEach(plugin => {
@@ -99,6 +112,8 @@ module.exports = {
             let errorMsg = '❌ Gagal memeriksa server!';
             if (error.response?.status === 404) {
                 errorMsg = '❌ Server tidak ditemukan! Pastikan IP benar.';
+            } else if (error.response?.status === 520) {
+                errorMsg = '❌ Error 520: Masalah server API atau server Minecraft tidak merespons. Coba lagi nanti!';
             } else if (error.code === 'ECONNABORTED') {
                 errorMsg = '❌ Server tidak merespons (timeout)!';
             } else if (error.code === 'ECONNREFUSED') {
