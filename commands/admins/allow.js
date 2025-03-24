@@ -8,7 +8,6 @@ module.exports = {
     usage: '!allowgroup <add/remove> <group_id>',
     permission: 'admin',
     async execute(sock, msg, args) {
-        // Cek apakah pengirim adalah admin yang diizinkan
         if (msg.key.participant !== config.adminNumber + '@s.whatsapp.net') {
             return await sock.sendMessage(msg.key.remoteJid, {
                 text: '❌ Anda tidak memiliki izin untuk menggunakan perintah ini!'
