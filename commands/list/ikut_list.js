@@ -1,4 +1,7 @@
-module.exports.ikut = {
+const config = require('../../config.json');
+const listManager = require('../../utils/listManager');
+
+module.exports = {
     name: 'ikut',
     alias: ['join_list', 'masuk'],
     category: 'group',

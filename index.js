@@ -10,7 +10,7 @@ const { loadReminders, reminders, saveReminders, scheduleNextReminder, sortRemin
 const { loadScheduledMessages, processScheduledMessages } = require('./utils/scheduledMessageUtils'); // Import
 const { getAutoResponsesForGroup } = require('./utils/autoResponseUtils'); // Import fungsi utility
 const levenshtein = require('fast-levenshtein'); // Install dengan: npm install fast-levenshtein
-
+const { listManager } = require('./utils/listManager');
 
 function findClosestCommand(input, commands) {
     let minDistance = Infinity;
@@ -464,6 +464,7 @@ async function startBot() {
         const isConnected = await checkConnection();
         if (isConnected) {
             checkAndSendNotifications(sock);
+            setInterval(() => listManager.checkExpiredLists(), 60 * 60 * 1000);
         }
     } catch(error) {
         console.error('Gagal memulai bot:', error);

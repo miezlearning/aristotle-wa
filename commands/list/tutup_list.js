@@ -1,4 +1,7 @@
-module.exports.tutup_list = {
+const config = require('../../config.json');
+const listManager = require('../../utils/listManager');
+
+module.exports = {
     name: 'tutup_list',
     alias: ['closelist', 'hapus_list'],
     category: 'group',
