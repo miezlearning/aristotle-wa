@@ -230,6 +230,11 @@ async function connectToWhatsApp() {
                 msg.message?.extendedTextMessage?.text || 
                 msg.message?.imageMessage?.caption || 
                 msg.message?.videoMessage?.caption || 
+                msg.message?.documentMessage?.caption || 
+                msg.message?.audioMessage?.caption || 
+                msg.message?.stickerMessage?.caption || 
+                msg.message?.buttonsResponseMessage?.selectedButtonId || 
+                msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId || 
                 ''
             ).trim();
         // Auto-response logic (dipindahkan ke atas dan hanya dijalankan jika bukan command)
