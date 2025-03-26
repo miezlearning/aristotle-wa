@@ -32,14 +32,16 @@ module.exports = {
             const response = await axios.get(apiUrl.toString());
             const data = response.data;
 
+            // console.log('API Response:', data);
+
             // Cek apakah API mengembalikan hasil yang valid
-            if (data.status === 'success' && data.final_url) {
+            if (data.status === true && data.result && data.result.redirectTo) {
                 await sock.sendMessage(msg.key.remoteJid, {
-                    text: `🔗 *Link Asli:*\n${data.final_url}\n\n` +
-                          `📋 *Input:* ${url}`
+                    text: `🔗 *Link Asli:*\n${data.result.redirectTo}\n\n` +
+                          `📋 *Input:* ${data.result.originalUrl}`
                 });
             } else {
-                throw new Error(data.message || 'Gagal mendeteksi link asli');
+                throw new Error(data.message || 'Gagal mendeteksi link asli. Pastikan URL valid dan dapat diakses.');
             }
 
             await sock.sendMessage(msg.key.remoteJid, { react: { text: "✅", key: msg.key } });
@@ -48,7 +50,7 @@ module.exports = {
             console.error('Error processing ceklink command:', error);
             await sock.sendMessage(msg.key.remoteJid, { react: { text: "⚠️", key: msg.key } });
             await sock.sendMessage(msg.key.remoteJid, { 
-                text: '❌ Gagal memeriksa redirect: ' + error.message 
+                text: '❌ Gagal memeriksa redirect: ' + (error.message || 'Terjadi kesalahan saat menghubungi API.')
             });
         }
     }
