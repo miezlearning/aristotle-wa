@@ -54,8 +54,8 @@ module.exports = {
             console.log('Catbox URL:', imageUrl);
 
             // Buat URL dengan query string untuk API hiuraa
-            const apiUrl = `https://api.hiuraa.my.id/ai/gemini-canvas?text=Change+only+the+skin+color+to+black,+keep+hair,+eyes,+and+clothes+unchanged&imageUrl=${encodeURIComponent(imageUrl)}`;
-            // Request ke API hiuraa menggunakan GET
+            const promptText = encodeURIComponent("Ubah warna kulit atau skin tone menjadi hitam saja, tanpa mengubah elemen lain pada gambar");
+            const apiUrl = `https://api.hiuraa.my.id/ai/gemini-canvas?text=${promptText}&imageUrl=${encodeURIComponent(imageUrl)}`;            // Request ke API hiuraa menggunakan GET
             const apiResponse = await axios.get(apiUrl);
 
             // Log response untuk debugging

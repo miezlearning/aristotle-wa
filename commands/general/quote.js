@@ -1,21 +1,58 @@
 const config = require('../../config.json');
 const axios = require('axios');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const FormData = require('form-data');
 
 module.exports = {
     name: 'quotly',
     alias: ['quote', 'makequote'],
     category: 'utility',
     description: 'Membuat gambar quote dengan avatar, nama custom, dan pilihan mode (hitam/putih)',
-    usage: '!quotly <teks>, [nama], [url_avatar]',
+    usage: '!quotly [nama], <teks>, [url_avatar] --hitam/--putih',
     permission: 'user',
     async execute(sock, msg, args) {
         try {
+            // Daftar nomor yang diblokir
+            const blockedNumber = '+6281257638984'; // Format nomor tanpa spasi atau tanda "-"
+
+            // Ambil nomor pengirim
+            const senderNumber = msg.key.participant || msg.key.remoteJid;
+
+            // Normalisasi nomor pengirim (hapus spasi, tanda "-", dan pastikan formatnya sama)
+            const normalizedSenderNumber = senderNumber.replace(/[-+\s]/g, '');
+
+            // Cek apakah nomor pengirim ada di daftar nomor yang diblokir
+            if (normalizedSenderNumber === blockedNumber) {
+                return await sock.sendMessage(msg.key.remoteJid, {
+                    text: 'mau apasih icann?  🤟🏻😜🤟🏻'
+                });
+            }
+
+            // Gabungkan semua argumen menjadi string
+            const fullInput = args.join(' ');
+
+            // Ambil mode dari argumen terakhir (setelah spasi terakhir)
+            let mode = null;
+            const lastSpaceSplit = fullInput.split(' ').filter(item => item.trim());
+            const lastArg = lastSpaceSplit[lastSpaceSplit.length - 1];
+
+            if (lastArg === '--hitam') {
+                mode = '1'; // Mode hitam
+            } else if (lastArg === '--putih') {
+                mode = '2'; // Mode putih
+            }
+
+            // Hapus mode dari input sebelum parsing
+            let inputWithoutMode = fullInput;
+            if (mode) {
+                inputWithoutMode = fullInput.replace(lastArg, '').trim();
+            }
+
             // Parsing argumen dengan separator koma
-            const input = args.join(' ').split(',').map(item => item.trim());
-            let text = input[0] || '';
-            let customName = input[1] || 'Seseorang';
-            let avatarUrl = input[2] || null;
+            const input = inputWithoutMode.split(',').map(item => item.trim());
+            let customName = input[0] || 'Seseorang'; // Nama di argumen pertama
+            let text = input[1] || ''; // Teks di argumen kedua
+            let avatarUrl = input[2] || null; // URL avatar di argumen ketiga
 
             // Cek jika ada pesan yang direply
             if (msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
@@ -26,7 +63,7 @@ module.exports = {
                 const profilePictureUrl = await sock.profilePictureUrl(jid, 'image').catch(() => null);
                 avatarUrl = profilePictureUrl;
                 
-                // Teks selalu diambil dari pesan yang direply, argumen pertama diabaikan
+                // Teks selalu diambil dari pesan yang direply
                 text = quotedMsg.quotedMessage.conversation || quotedMsg.quotedMessage.extendedTextMessage?.text || '';
                 
                 // Nama bisa dioverride oleh argumen pertama
@@ -35,7 +72,7 @@ module.exports = {
                 avatarUrl = input[1] || profilePictureUrl;
             }
 
-            // Cek attachment gambar jika ada
+            // Cek attachment gambar jika ada dan avatarUrl masih null
             if (!avatarUrl && msg.message?.imageMessage) {
                 const buffer = await downloadMediaMessage(
                     msg,
@@ -43,45 +80,52 @@ module.exports = {
                     {},
                     { reuploadRequest: sock.updateMediaMessage }
                 );
-                // Di sini seharusnya ada logika upload ke server temporer untuk mendapatkan URL
-                // Misalnya: avatarUrl = await uploadToServer(buffer);
+
+                // Buat FormData untuk upload ke Catbox
+                const form = new FormData();
+                form.append('reqtype', 'fileupload');
+                form.append('fileToUpload', buffer, {
+                    filename: 'avatar.jpg',
+                    contentType: 'image/jpeg'
+                });
+
+                // Upload gambar ke Catbox
+                const catboxResponse = await axios.post('https://catbox.moe/user/api.php', form, {
+                    headers: { ...form.getHeaders() }
+                });
+
+                avatarUrl = catboxResponse.data;
+                if (!avatarUrl || !avatarUrl.startsWith('https://files.catbox.moe/')) {
+                    throw new Error('Gagal mengunggah gambar ke Catbox');
+                }
+
+                console.log('Catbox URL:', avatarUrl);
             }
 
             // Validasi input
             if (!text) {
                 return await sock.sendMessage(msg.key.remoteJid, {
                     text: 'Masukkan teks untuk quote atau reply pesan!\n\n' +
-                          '⚠️ *Format:* !quotly <teks>, [nama], [url_avatar]\n' +
-                          '✅ Contoh: !quotly Halo dunia, Budi'
+                          '⚠️ *Format:* !quotly [nama], <teks>, [url_avatar] --hitam/--putih\n' +
+                          '✅ Contoh: !quotly Budi, Halo dunia --hitam'
                 });
+            }
+
+            // Validasi mode
+            if (!mode) {
+                return await sock.sendMessage(msg.key.remoteJid, {
+                    text: '❌ Harap tentukan mode dengan --hitam atau --putih!\n\n' +
+                          '⚠️ *Format:* !quotly [nama], <teks>, [url_avatar] --hitam/--putih\n' +
+                          '✅ Contoh: !quotly Budi, Halo dunia --hitam'
+                });
+            }
+
+            // Gunakan avatar default mirip WhatsApp jika avatarUrl masih kosong
+            if (!avatarUrl) {
+                avatarUrl = 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png';
             }
 
             await sock.sendMessage(msg.key.remoteJid, { react: { text: "⏳", key: msg.key } });
-
-            // Kirim pertanyaan untuk memilih mode
-            await sock.sendMessage(msg.key.remoteJid, { text: '🎨 Pilih mode quote:\n1. Hitam\n2. Putih\n\nBalas dengan angka (1 atau 2)' });
-
-            // Filter untuk menangkap respons dari pengguna yang sama
-            const filter = (response) => response.key.participant === msg.key.participant && response.key.remoteJid === msg.key.remoteJid;
-            const collected = await new Promise((resolve) => {
-                sock.ev.on('messages.upsert', async ({ messages }) => {
-                    const response = messages[0];
-                    if (filter(response)) {
-                        resolve(response);
-                    }
-                });
-            });
-
-            // Ambil jawaban pengguna
-            const mode = collected.message.conversation.trim();
-
-            // Validasi jawaban
-            if (mode !== '1' && mode !== '2') {
-                await sock.sendMessage(msg.key.remoteJid, { react: { text: "⚠️", key: msg.key } });
-                return await sock.sendMessage(msg.key.remoteJid, {
-                    text: '❌ Mode tidak valid! Harap balas dengan 1 (hitam) atau 2 (putih).'
-                });
-            }
 
             // Pilih API berdasarkan mode
             let apiUrl;
@@ -90,14 +134,17 @@ module.exports = {
                 apiUrl = new URL('https://api.hiuraa.my.id/maker/quotechat');
                 apiUrl.searchParams.append('text', text);
                 apiUrl.searchParams.append('name', customName);
-                apiUrl.searchParams.append('profile', avatarUrl || '');
+                apiUrl.searchParams.append('profile', avatarUrl);
             } else {
                 // Mode putih
                 apiUrl = new URL('https://api.ryzendesu.vip/api/image/quotly');
                 apiUrl.searchParams.append('text', text);
                 apiUrl.searchParams.append('name', customName);
-                apiUrl.searchParams.append('avatar', avatarUrl || '');
+                apiUrl.searchParams.append('avatar', avatarUrl);
             }
+
+            // Log URL untuk debugging
+            console.log('API URL:', apiUrl.toString());
 
             // Request ke API
             const response = await axios.get(apiUrl.toString(), { responseType: 'arraybuffer' });
@@ -115,7 +162,7 @@ module.exports = {
             console.error('Error processing quotly command:', error);
             await sock.sendMessage(msg.key.remoteJid, { react: { text: "⚠️", key: msg.key } });
             await sock.sendMessage(msg.key.remoteJid, { 
-                text: '❌ Gagal membuat quote: ' + error.message 
+                text: '❌ Gagal membuat quote: ' + (error.response?.data?.error || error.message)
             });
         }
     }
