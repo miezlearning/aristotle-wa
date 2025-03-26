@@ -6,7 +6,7 @@ module.exports = {
     name: 'quotly',
     alias: ['quote', 'makequote'],
     category: 'utility',
-    description: 'Membuat gambar quote dengan avatar dan nama custom',
+    description: 'Membuat gambar quote dengan avatar, nama custom, dan pilihan mode (hitam/putih)',
     usage: '!quotly <teks>, [nama], [url_avatar]',
     permission: 'user',
     async execute(sock, msg, args) {
@@ -29,7 +29,7 @@ module.exports = {
                 // Teks selalu diambil dari pesan yang direply, argumen pertama diabaikan
                 text = quotedMsg.quotedMessage.conversation || quotedMsg.quotedMessage.extendedTextMessage?.text || '';
                 
-                // Nama bisa dioverride oleh argumen pertama (bukan kedua, karena teks tidak dipakai)
+                // Nama bisa dioverride oleh argumen pertama
                 customName = input[0] || 'Seseorang';
                 // Avatar bisa dioverride oleh argumen kedua (jika ada)
                 avatarUrl = input[1] || profilePictureUrl;
@@ -52,18 +52,52 @@ module.exports = {
                 return await sock.sendMessage(msg.key.remoteJid, {
                     text: 'Masukkan teks untuk quote atau reply pesan!\n\n' +
                           '⚠️ *Format:* !quotly <teks>, [nama], [url_avatar]\n' +
-                          '✅ Contoh: !quotly Halo dunia, Budi\n' +
-                          '✅ Reply pesan: !quotly Budi, https://example.com/avatar.jpg'
+                          '✅ Contoh: !quotly Halo dunia, Budi'
                 });
             }
 
             await sock.sendMessage(msg.key.remoteJid, { react: { text: "⏳", key: msg.key } });
 
-            // Buat URL untuk API Quotly
-            const apiUrl = new URL('https://api.ryzendesu.vip/api/image/quotly');
-            apiUrl.searchParams.append('text', text);
-            apiUrl.searchParams.append('name', customName);
-            apiUrl.searchParams.append('avatar', avatarUrl || '');
+            // Kirim pertanyaan untuk memilih mode
+            await sock.sendMessage(msg.key.remoteJid, { text: '🎨 Pilih mode quote:\n1. Hitam\n2. Putih\n\nBalas dengan angka (1 atau 2)' });
+
+            // Filter untuk menangkap respons dari pengguna yang sama
+            const filter = (response) => response.key.participant === msg.key.participant && response.key.remoteJid === msg.key.remoteJid;
+            const collected = await new Promise((resolve) => {
+                sock.ev.on('messages.upsert', async ({ messages }) => {
+                    const response = messages[0];
+                    if (filter(response)) {
+                        resolve(response);
+                    }
+                });
+            });
+
+            // Ambil jawaban pengguna
+            const mode = collected.message.conversation.trim();
+
+            // Validasi jawaban
+            if (mode !== '1' && mode !== '2') {
+                await sock.sendMessage(msg.key.remoteJid, { react: { text: "⚠️", key: msg.key } });
+                return await sock.sendMessage(msg.key.remoteJid, {
+                    text: '❌ Mode tidak valid! Harap balas dengan 1 (hitam) atau 2 (putih).'
+                });
+            }
+
+            // Pilih API berdasarkan mode
+            let apiUrl;
+            if (mode === '1') {
+                // Mode hitam
+                apiUrl = new URL('https://api.hiuraa.my.id/maker/quotechat');
+                apiUrl.searchParams.append('text', text);
+                apiUrl.searchParams.append('name', customName);
+                apiUrl.searchParams.append('profile', avatarUrl || '');
+            } else {
+                // Mode putih
+                apiUrl = new URL('https://api.ryzendesu.vip/api/image/quotly');
+                apiUrl.searchParams.append('text', text);
+                apiUrl.searchParams.append('name', customName);
+                apiUrl.searchParams.append('avatar', avatarUrl || '');
+            }
 
             // Request ke API
             const response = await axios.get(apiUrl.toString(), { responseType: 'arraybuffer' });
@@ -72,7 +106,7 @@ module.exports = {
             // Kirim hasil
             await sock.sendMessage(msg.key.remoteJid, {
                 image: buffer,
-                caption: `Quote untuk "${text}" oleh ${customName}`
+                caption: `Quote untuk "${text}" oleh ${customName} (Mode: ${mode === '1' ? 'Hitam' : 'Putih'})`
             });
 
             await sock.sendMessage(msg.key.remoteJid, { react: { text: "✅", key: msg.key } });
