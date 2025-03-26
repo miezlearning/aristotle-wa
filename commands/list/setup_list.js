@@ -1,5 +1,5 @@
 const config = require('../../config.json');
-const listManager = require('../../utils/listManager');
+const listManager = require('../../utils/listManager').listManager;
 
 module.exports = {
     name: 'setup_list',
