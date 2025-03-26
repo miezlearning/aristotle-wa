@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const listsFile = path.join(__dirname, 'lists.json');
+const listsFile = path.join(__dirname, '../data/lists.json');
 
 class ListManager {
     constructor() {
@@ -76,4 +76,6 @@ class ListManager {
     }
 }
 
-module.exports = new ListManager();
+module.exports = {
+    listManager: new ListManager() // Export an instance
+};

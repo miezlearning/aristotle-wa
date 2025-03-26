@@ -464,7 +464,19 @@ async function startBot() {
         const isConnected = await checkConnection();
         if (isConnected) {
             checkAndSendNotifications(sock);
-            setInterval(() => listManager.checkExpiredLists(), 60 * 60 * 1000);
+            if (listManager && typeof listManager.checkExpiredLists === 'function') {
+                console.log('listManager initialized successfully:', listManager);
+                setInterval(() => {
+                    try {
+                        listManager.checkExpiredLists();
+                        console.log('Checked expired lists');
+                    } catch (err) {
+                        console.error('Error in checkExpiredLists:', err);
+                    }
+                }, 60 * 60 * 1000); // Runs every hour
+            } else {
+                console.error('listManager is not properly initialized or missing checkExpiredLists');
+            }
         }
     } catch(error) {
         console.error('Gagal memulai bot:', error);
