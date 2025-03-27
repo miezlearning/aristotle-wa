@@ -74,6 +74,35 @@ class ListManager {
             this.lists = new Map(data);
         }
     }
+
+    // Fungsi baru: Menghapus peserta berdasarkan indeks
+    removeParticipantByIndex(groupId, index) {
+        if (this.lists.has(groupId)) {
+            const list = this.lists.get(groupId);
+            if (index < 0 || index >= list.participants.length) {
+                return null; // Indeks tidak valid
+            }
+            const [removed] = list.participants.splice(index, 1); // Hapus dan ambil peserta yang dihapus
+            this.saveLists();
+            return removed; // Kembalikan peserta yang dihapus
+        }
+        return null; // List tidak ditemukan
+    }
+
+    // Fungsi baru: Menghapus peserta berdasarkan nama
+    removeParticipantByName(groupId, name) {
+        if (this.lists.has(groupId)) {
+            const list = this.lists.get(groupId);
+            const index = list.participants.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+            if (index === -1) {
+                return null; // Nama tidak ditemukan
+            }
+            const [removed] = list.participants.splice(index, 1); // Hapus dan ambil peserta yang dihapus
+            this.saveLists();
+            return removed; // Kembalikan peserta yang dihapus
+        }
+        return null; // List tidak ditemukan
+    }
 }
 
 module.exports = {
