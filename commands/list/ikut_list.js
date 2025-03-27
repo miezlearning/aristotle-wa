@@ -5,8 +5,8 @@ module.exports = {
     name: 'ikut',
     alias: ['join_list', 'masuk'],
     category: 'group',
-    description: 'Bergabung ke daftar yang sudah dibuat di grup',
-    usage: '!ikut <nama> - <catatan>',
+    description: 'Bergabung ke daftar yang sudah dibuat di grup dengan nama dan catatan bebas',
+    usage: '!ikut <nama> <catatan>',
     permission: 'user',
     async execute(sock, msg, args) {
         const groupId = msg.key.remoteJid;
@@ -24,13 +24,21 @@ module.exports = {
         }
 
         try {
-            const input = args.join(' ').split(' - ');
-            const participantName = input[0]?.trim().slice(0, 20);
-            const note = input[1]?.trim().slice(0, 50) || '';
+            // Pastikan ada input
+            if (args.length < 1) {
+                return await sock.sendMessage(groupId, {
+                    text: '⚠️ Format salah! Gunakan: *!ikut <nama> <catatan>*\nContoh: !ikut Alip Ayam Goreng 2 porsi\n(Nama hanya boleh huruf, angka, spasi, maks 20 karakter)'
+                });
+            }
 
+            // Ambil nama dari kata pertama, sisanya jadi catatan
+            const participantName = args[0].trim().slice(0, 20);
+            const note = args.slice(1).join(' ').trim().slice(0, 50) || '';
+
+            // Validasi nama (huruf, angka, spasi)
             if (!participantName || !participantName.match(/^[a-zA-Z0-9\s]+$/)) {
                 return await sock.sendMessage(groupId, {
-                    text: '⚠️ Format salah atau nama tidak valid! Gunakan: *!ikut <nama> - <catatan>*\nContoh: !ikut Alip - Ayam Goreng\n(Nama hanya boleh huruf, angka, spasi, maks 20 karakter)'
+                    text: '⚠️ Nama tidak valid! Gunakan: *!ikut <nama> <catatan>*\nContoh: !ikut Alip Ayam Goreng 2 porsi\n(Nama hanya boleh huruf, angka, spasi, maks 20 karakter)'
                 });
             }
 
@@ -50,7 +58,7 @@ module.exports = {
             console.log(`[${groupId}] ${participantName} bergabung ke list ${list.name}`);
             const updatedList = listManager.getList(groupId);
             const participantList = updatedList.participants
-                .map((p, i) => `${i + 1}. ${p.name} - ${p.note || 'Tanpa catatan'}`)
+                .map((p, i) => `${i + 1}. ${p.name}${p.note ? ' - ' + p.note : ''}`)
                 .join('\n');
 
             await sock.sendMessage(groupId, {
