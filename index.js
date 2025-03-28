@@ -222,7 +222,7 @@ async function connectToWhatsApp() {
         if(connectionState !== 'open') return;
 
         const msg = messages[0];
-            if (!msg.message || msg.key.fromMe) return;
+            if (!msg.message) return;
 
             // Ambil teks perintah dari berbagai sumber, termasuk caption gambar
             const text = (
