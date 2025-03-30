@@ -24,7 +24,7 @@ module.exports = {
                     return await sock.sendMessage(msg.key.remoteJid, {
                         text: 'Batasan jumlah data harus berupa angka positif!\n\n' +
                               '⚠️ *Format:* !carimhs <keyword> [-b <jumlah>]\n' +
-                              '✅ Contoh: !carimhs muhammad alif mulawarman -b 3'
+                              '✅ Contoh: !carimhs muhammad alif mulawarman -b 3 (artinya menampilkan 3 saja)'
                     });
                 }
                 // Hapus -b dan jumlahnya dari keyword
