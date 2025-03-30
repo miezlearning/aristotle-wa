@@ -55,24 +55,14 @@ module.exports = {
         }
 
         // Tentukan groupId: gunakan args[0] jika ada, jika tidak gunakan current group
-        let groupId = msg.key.remoteJid; // Default ke grup tempat command dijalankan
-        if (args.length > 0) {
-            groupId = args[0];
-            // Validasi format group ID jika diberikan
-            if (!groupId.endsWith('@g.us')) {
-                console.log('ID Grup tidak valid');
-                await sendMessage(
-                    msg.key.remoteJid,
-                    '❌ ID Grup tidak valid! Harus berakhiran @g.us'
-                );
-                return;
-            }
-        } else if (!groupId.endsWith('@g.us')) {
-            // Jika tidak ada args dan bukan grup
-            console.log('Perintah tidak digunakan di grup');
+        let groupId = args.length > 0 ? args[0] : msg.key.remoteJid;
+
+        // Validasi format group ID
+        if (!groupId.endsWith('@g.us')) {
+            console.log('ID Grup tidak valid atau perintah tidak digunakan di grup');
             await sendMessage(
-                groupId,
-                '❌ Perintah ini hanya dapat digunakan di dalam grup jika tidak ada ID grup yang diberikan!'
+                msg.key.remoteJid,
+                '❌ ID Grup tidak valid! Harus berakhiran @g.us atau gunakan perintah ini di dalam grup.'
             );
             return;
         }
