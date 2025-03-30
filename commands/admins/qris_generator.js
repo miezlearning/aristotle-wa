@@ -1,6 +1,5 @@
 const { createCanvas, loadImage } = require('canvas');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
-
 const jsQR = require('jsqr');
 const QRCode = require('qrcode');
 
@@ -13,26 +12,33 @@ module.exports = {
     permission: 'everyone',
     async execute(sock, msg, args) {
         try {
+            console.log('Memulai eksekusi qris_generator...');
+
             // Cek apakah pesan berisi gambar
-            if (!msg.message.imageMessage) {
+            if (!msg.message || !msg.message.imageMessage) {
+                console.log('Pesan tidak berisi gambar.');
                 await sock.sendMessage(msg.key.remoteJid, { text: 'Harap kirim gambar QRIS statis dengan perintah ini.' });
                 return;
             }
+            console.log('Pesan berisi gambar, melanjutkan...');
 
             // Validasi jumlah argumen
             if (args.length < 2) {
+                console.log('Argumen kurang dari 2.');
                 await sock.sendMessage(msg.key.remoteJid, { 
                     text: 'Penggunaan: !qris_generator <nominal> <fee_option> [fee_amount]\nContoh: !qris_generator 10000 no' 
                 });
                 return;
             }
+            console.log('Argumen valid, args:', args);
 
             // Ambil parameter dari args
             const nominal = args[0];
-            const feeOption = args[1];
+            const feeOption = args[1].toLowerCase();
             let feeAmount;
             if (feeOption !== 'no') {
                 if (args.length < 3) {
+                    console.log('Fee option bukan "no" tapi fee_amount tidak ada.');
                     await sock.sendMessage(msg.key.remoteJid, { 
                         text: `Harap masukkan fee_amount untuk opsi ${feeOption}. Contoh: !qris_generator 10000 ${feeOption} 5` 
                     });
@@ -43,22 +49,40 @@ module.exports = {
 
             // Validasi input
             if (isNaN(Number(nominal))) {
+                console.log('Nominal bukan angka:', nominal);
                 await sock.sendMessage(msg.key.remoteJid, { text: 'Nominal harus berupa angka.' });
                 return;
             }
             if (!['no', 'percent', 'rupiah'].includes(feeOption)) {
-                await sock.sendMessage(msg.key.remoteJid, { text: 'Fee option harus no, percent, atau rupiah.' });
+                console.log('Fee option tidak valid:', feeOption);
+                await sock.sendMessage(msg.key.remoteJid, { text: 'Fee option harus "no", "percent", atau "rupiah".' });
                 return;
             }
             if (feeOption !== 'no' && isNaN(Number(feeAmount))) {
+                console.log('Fee amount bukan angka:', feeAmount);
                 await sock.sendMessage(msg.key.remoteJid, { text: 'Fee amount harus berupa angka.' });
                 return;
             }
+            console.log('Input valid: nominal=', nominal, 'feeOption=', feeOption, 'feeAmount=', feeAmount);
 
             // Unduh gambar QRIS statis
-            const buffer = await downloadMediaMessage(msg.message.imageMessage, 'image');
+            console.log('Mengunduh gambar QRIS...');
+            const buffer = await downloadMediaMessage(
+                {
+                    message: {
+                        imageMessage: msg.message.imageMessage
+                    },
+                    key: msg.key
+                },
+                'buffer',
+                {},
+                { logger: console }
+            );
+            console.log('Gambar berhasil diunduh, ukuran buffer:', buffer.length);
+
             // Muat gambar ke canvas
             const img = await loadImage(buffer);
+            console.log('Gambar dimuat ke canvas, ukuran:', img.width, 'x', img.height);
             const canvas = createCanvas(img.width, img.height);
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
@@ -67,16 +91,20 @@ module.exports = {
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
             if (!qrCodeData) {
+                console.log('Gagal membaca QR code dari gambar.');
                 await sock.sendMessage(msg.key.remoteJid, { text: 'Gagal membaca data QRIS dari gambar.' });
                 return;
             }
+            console.log('QR code terbaca, data:', qrCodeData.data);
             const qrisData = qrCodeData.data;
 
             // Konversi ke QRIS dinamis
             const dynamicQRIS = convertQRIS(qrisData, nominal, feeOption, feeAmount);
+            console.log('QRIS dinamis dibuat:', dynamicQRIS);
 
             // Buat gambar QRIS dinamis
             const qrBuffer = await QRCode.toBuffer(dynamicQRIS);
+            console.log('Gambar QRIS dinamis dibuat, ukuran buffer:', qrBuffer.length);
 
             // Hitung total
             let total = Number(nominal);
@@ -84,11 +112,12 @@ module.exports = {
             if (feeOption === 'percent') {
                 const fee = total * (Number(feeAmount) / 100);
                 total += fee;
-                feeText = `${feeAmount}% (Rp ${fee.toLocaleString('id-ID')})`;
+                feeText = `${feeAmount}% (Rp ${Math.round(fee).toLocaleString('id-ID')})`;
             } else if (feeOption === 'rupiah') {
                 total += Number(feeAmount);
                 feeText = `Rp ${Number(feeAmount).toLocaleString('id-ID')}`;
             }
+            console.log('Total dihitung:', total);
 
             // Buat caption
             let caption = `*QRIS Dinamis untuk Pembayaran*\n\n`;
@@ -97,12 +126,15 @@ module.exports = {
                 caption += `Fee: ${feeText}\n`;
             }
             caption += `Total: Rp ${total.toLocaleString('id-ID')}`;
+            console.log('Caption dibuat:', caption);
 
             // Kirim gambar QRIS dinamis dengan caption
-            await sock.sendMessage(msg.key.remoteJid, {
+            console.log('Mengirim pesan ke', msg.key.remoteJid);
+            const sentMessage = await sock.sendMessage(msg.key.remoteJid, {
                 image: qrBuffer,
                 caption: caption
             });
+            console.log('Pesan terkirim, ID:', sentMessage?.key?.id);
 
         } catch (error) {
             console.error('Error di qris_generator:', error);
@@ -110,6 +142,7 @@ module.exports = {
         }
     }
 };
+
 // Fungsi untuk mengonversi QRIS statis ke dinamis
 function convertQRIS(qris, nominal, feeOption, feeAmount) {
     let tax = '';
