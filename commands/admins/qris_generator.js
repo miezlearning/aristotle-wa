@@ -4,6 +4,7 @@ const QRCode = require('qrcode');
 
 module.exports = {
     name: 'qris_generator',
+    alias: ['qris', 'buatqris'],
     category: 'utility',
     description: 'Generate dynamic QRIS dari static QRIS image',
     usage: '!qris_generator <nominal> <fee_option> [fee_amount]',
