@@ -1,4 +1,6 @@
 const { createCanvas, loadImage } = require('canvas');
+const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+
 const jsQR = require('jsqr');
 const QRCode = require('qrcode');
 
@@ -54,8 +56,7 @@ module.exports = {
             }
 
             // Unduh gambar QRIS statis
-            const buffer = await sock.downloadMediaMessage(msg);
-
+            const buffer = await downloadMediaMessage(msg.message.imageMessage, 'image');
             // Muat gambar ke canvas
             const img = await loadImage(buffer);
             const canvas = createCanvas(img.width, img.height);
@@ -109,7 +110,6 @@ module.exports = {
         }
     }
 };
-
 // Fungsi untuk mengonversi QRIS statis ke dinamis
 function convertQRIS(qris, nominal, feeOption, feeAmount) {
     let tax = '';
