@@ -238,7 +238,7 @@ async function connectToWhatsApp() {
                 ''
             ).trim();
         // Auto-response logic (dipindahkan ke atas dan hanya dijalankan jika bukan command)
-        if(!text.startsWith('.')) {
+        if(!text.startsWith('!')) {
             const isGroup = msg.key.remoteJid.endsWith('@g.us');
             if (isGroup) {
                 try {
