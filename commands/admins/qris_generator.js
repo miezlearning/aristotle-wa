@@ -26,7 +26,7 @@ module.exports = {
             if (args.length < 2) {
                 console.log('Argumen kurang dari 2.');
                 await sock.sendMessage(msg.key.remoteJid, { 
-                    text: 'Penggunaan: !qris_generator <nominal> <fee_option> [fee_amount]\nContoh: !qris_generator 10000 no' 
+                    text: 'Penggunaan: !qris_generator <nominal> <fee_option> [fee_amount]\nContoh: !qris_generator 10000 ga' 
                 });
                 return;
             }
@@ -36,9 +36,9 @@ module.exports = {
             const nominal = args[0];
             const feeOption = args[1].toLowerCase();
             let feeAmount;
-            if (feeOption !== 'no') {
+            if (feeOption !== 'ga') {
                 if (args.length < 3) {
-                    console.log('Fee option bukan "no" tapi fee_amount tidak ada.');
+                    console.log('Fee option bukan "ga" tapi fee_amount tidak ada.');
                     await sock.sendMessage(msg.key.remoteJid, { 
                         text: `Harap masukkan fee_amount untuk opsi ${feeOption}. Contoh: !qris_generator 10000 ${feeOption} 5` 
                     });
@@ -53,12 +53,12 @@ module.exports = {
                 await sock.sendMessage(msg.key.remoteJid, { text: 'Nominal harus berupa angka.' });
                 return;
             }
-            if (!['no', 'percent', 'rupiah'].includes(feeOption)) {
+            if (!['ga', 'percent', 'rupiah'].includes(feeOption)) {
                 console.log('Fee option tidak valid:', feeOption);
-                await sock.sendMessage(msg.key.remoteJid, { text: 'Fee option harus "no", "percent", atau "rupiah".' });
+                await sock.sendMessage(msg.key.remoteJid, { text: 'Fee option harus "ga", "percent", atau "rupiah".' });
                 return;
             }
-            if (feeOption !== 'no' && isNaN(Number(feeAmount))) {
+            if (feeOption !== 'ga' && isNaN(Number(feeAmount))) {
                 console.log('Fee amount bukan angka:', feeAmount);
                 await sock.sendMessage(msg.key.remoteJid, { text: 'Fee amount harus berupa angka.' });
                 return;
@@ -122,7 +122,7 @@ module.exports = {
             // Buat caption
             let caption = `*QRIS Dinamis untuk Pembayaran*\n\n`;
             caption += `Nominal: Rp ${Number(nominal).toLocaleString('id-ID')}\n`;
-            if (feeOption !== 'no') {
+            if (feeOption !== 'ga') {
                 caption += `Fee: ${feeText}\n`;
             }
             caption += `Total: Rp ${total.toLocaleString('id-ID')}`;
