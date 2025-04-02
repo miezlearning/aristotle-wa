@@ -14,7 +14,6 @@ module.exports = {
         try {
             console.log('Memulai eksekusi qris_generator...');
 
-            // Cek apakah pesan berisi gambar
             if (!msg.message || !msg.message.imageMessage) {
                 console.log('Pesan tidak berisi gambar.');
                 await sock.sendMessage(msg.key.remoteJid, { text: 'Harap kirim gambar QRIS statis dengan perintah ini.' });
