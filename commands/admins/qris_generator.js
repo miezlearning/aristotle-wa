@@ -13,7 +13,6 @@ module.exports = {
     async execute(sock, msg, args) {
         try {
             console.log('Memulai eksekusi qris_generator...');
-
             if (!msg.message || !msg.message.imageMessage) {
                 console.log('Pesan tidak berisi gambar.');
                 await sock.sendMessage(msg.key.remoteJid, { text: 'Harap kirim gambar QRIS statis dengan perintah ini.' });
