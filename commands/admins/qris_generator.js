@@ -21,7 +21,6 @@ module.exports = {
             }
             console.log('Pesan berisi gambar, melanjutkan...');
 
-            // Validasi jumlah argumen
             if (args.length < 2) {
                 console.log('Argumen kurang dari 2.');
                 await sock.sendMessage(msg.key.remoteJid, { 
