@@ -26,7 +26,6 @@ module.exports = {
             const query = args.join(' ').trim();
             let youtubeUrl = query;
 
-            // Cari video jika bukan URL
             if (!query.match(/youtube\.com|youtu\.be/)) {
                 console.log('Mencari lagu:', query);
                 const results = await yts(query);
@@ -39,7 +38,6 @@ module.exports = {
             const videoInfo = (await yts(youtubeUrl)).videos[0];
             if (!videoInfo) throw new Error('Informasi video tidak tersedia');
 
-            // Daftar API yang akan dicoba
             const apiList = [
                 `https://apis.davidcyriltech.my.id/youtube/mp3?url=${youtubeUrl}`,
                 `https://api.ryzendesu.vip/api/downloader/ytmp3?url=${youtubeUrl}`,
@@ -76,7 +74,6 @@ module.exports = {
                 thumbnail: responseData.image || videoInfo.thumbnail
             };
 
-            // Caption yang lebih jelas
             const captionText = `
 🎸 *ada nih lagunya...*
 ──────────────────
@@ -88,12 +85,16 @@ module.exports = {
 ──────────────────
             `.trim();
 
-            // Kirim audio dengan caption dan thumbnail
+            // Kirim caption sebagai pesan teks terpisah
+            await sock.sendMessage(msg.key.remoteJid, {
+                text: captionText
+            }, { quoted: msg });
+
+            // Kirim audio dengan thumbnail di contextInfo
             await sock.sendMessage(msg.key.remoteJid, {
                 audio: { url: audioLink },
                 mimetype: 'audio/mpeg',
                 ptt: false,
-                caption: captionText,
                 contextInfo: {
                     externalAdReply: {
                         title: songDetails.title,
@@ -106,7 +107,6 @@ module.exports = {
                 }
             }, { quoted: msg });
 
-            // Ganti reaksi menjadi sukses
             await sock.sendMessage(msg.key.remoteJid, {
                 react: { text: "✅", key: processingMsg.key }
             });
