@@ -18,7 +18,7 @@ module.exports = {
         }
 
         const processingMsg = await sock.sendMessage(msg.key.remoteJid, {
-            text: `🔎 Sedang cari lagu yang kamu cari... \`${args.join(' ').trim()}\``,
+            text: `🔎 Lagi cari lagu yang kamu cari... \`${args.join(' ').trim()}\``,
             react: { text: "⏳", key: msg.key }
         });
 
