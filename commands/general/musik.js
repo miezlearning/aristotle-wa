@@ -15,7 +15,7 @@ module.exports = {
             return await sock.sendMessage(msg.key.remoteJid, {
                 text: '🎵 Masukkan judul lagu atau URL YouTube setelah !musik\nContoh: !musik Wave to Earth Homesick'
             });
-        }
+        } 
 
         const processingMsg = await sock.sendMessage(msg.key.remoteJid, {
             text: `🔎 Lagi cari lagu yang kamu cari... \`${args.join(' ').trim()}\``,
