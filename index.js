@@ -256,11 +256,11 @@ async function connectToWhatsApp() {
                             let match;
 
                             while ((match = mentionRegex.exec(responseText)) !== null) {
-                                const phoneNumber = match[1];
-                                const fullJid = `${phoneNumber}@s.whatsapp.net`;
+                                const nohp = match[1];
+                                const fullJid = `${nohp}@s.whatsapp.net`;
                                 mentions.push(fullJid);
                                 // Ganti mention di teks dengan mention yang bisa di-parse WhatsApp (opsional)
-                                processedResponseText = processedResponseText.replace(match[0], `@${phoneNumber}`);
+                                processedResponseText = processedResponseText.replace(match[0], `@${nohp}`);
                             }
 
                             await sock.sendMessage(msg.key.remoteJid, {
