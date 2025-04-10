@@ -6,7 +6,7 @@ const config = require('./config.json');
 const cron = require('node-cron');
 const moment = require('moment-timezone');
 const { getAllUpcomingEvents, formatEventMessage } = require('./utils/calendar');
-const { loadReminders, reminders, saveReminders, scheduleNextReminder, sortReminders } = require('./utils/reminderUtils');
+const { loadReminders, reminders, saveReminders, scheduleNextReminder } = require('./utils/reminderUtils');
 const { loadScheduledMessages, processScheduledMessages } = require('./utils/scheduledMessageUtils'); // Import
 const { getAutoResponsesForGroup } = require('./utils/autoResponseUtils'); // Import fungsi utility
 const levenshtein = require('fast-levenshtein'); // Install dengan: npm install fast-levenshtein
@@ -131,7 +131,6 @@ async function connectToWhatsApp() {
                     
                     // Initialize other components only after status is set
                     loadReminders();
-                    sortReminders();
                     scheduleNextReminder(sock);
                     loadScheduledMessages();
                     setInterval(() => processScheduledMessages(sock), 60000);
