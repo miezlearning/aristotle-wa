@@ -121,6 +121,7 @@ module.exports = {
     reminders,
     loadReminders,
     saveReminders,
+    sortReminders,
     scheduleNextReminder,
     processReminders // Ekspor fungsi ini
 };
