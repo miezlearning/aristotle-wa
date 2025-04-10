@@ -64,7 +64,6 @@ async function processReminders(sock) {
         for (const reminder of reminderList) {
             if (now >= reminder.timestamp) {
                 try {
-                    // Kirim pesan
                     await sock.sendMessage(groupId, {
                         text: `⏰ Pengingat dari @${reminder.creator.split('@')[0]}:\n${reminder.message}`,
                         mentions: [reminder.creator, ...reminder.mentions]
@@ -80,7 +79,6 @@ async function processReminders(sock) {
             }
         }
 
-        // Update daftar reminder
         if (activeReminders.length > 0) {
             reminders.set(groupId, activeReminders);
         } else {
@@ -97,31 +95,24 @@ async function processReminders(sock) {
 
 // Jadwalkan timeout untuk reminder terdekat
 function scheduleNextReminder(sock) {
-    // Cari semua reminder dari semua grup
     const allReminders = [];
     reminders.forEach((list) => allReminders.push(...list));
 
     if (allReminders.length === 0) return;
 
-    // Cari reminder dengan timestamp terkecil
     const nextReminder = allReminders.reduce((prev, curr) => 
         prev.timestamp < curr.timestamp ? prev : curr
     );
 
-    // Hitung delay sampai reminder terdekat
     const delay = nextReminder.timestamp - Date.now();
 
     if (delay < 0) {
-        // Jika waktu sudah lewat, proses segera
         processReminders(sock);
     } else {
-        // Hapus timeout sebelumnya (jika ada)
         if (nextTimeout) clearTimeout(nextTimeout);
-
-        // Set timeout baru
         nextTimeout = setTimeout(() => {
             processReminders(sock);
-            scheduleNextReminder(sock); // Jadwalkan berikutnya
+            scheduleNextReminder(sock);
         }, delay);
     }
 }

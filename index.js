@@ -326,54 +326,24 @@ try {
     return connection;
 }
 
-function scheduleNextReminderCheck() {
-    // Hapus timeout sebelumnya
-    if(nextReminderTimeout) {
-        clearTimeout(nextReminderTimeout);
-        nextReminderTimeout = null;
-    }
-
-    // Cari reminder terdekat
-    const allReminders = Array.from(reminders.values()).flat();
-    if(allReminders.length === 0) return;
-
-    const now = Date.now();
-    const upcomingReminders = allReminders
-        .filter(r => r.timestamp > now)
-        .sort((a, b) => a.timestamp - b.timestamp);
-
-    if(upcomingReminders.length === 0) return;
-
-    const nextReminder = upcomingReminders[0];
-    const delay = nextReminder.timestamp - now;
-
-    console.log(`Reminder berikutnya dijadwalkan dalam ${delay}ms`);
-
-    nextReminderTimeout = setTimeout(async () => {
-        await processReminders();
-        scheduleNextReminderCheck();
-    }, delay);
-}
-
-async function processReminders() {
+async function processReminders(sock) {
     console.log('Memproses reminders...');
     const now = Date.now();
     let needsSave = false;
 
-    for(const [groupId, reminderList] of reminders.entries()) {
+    for (const [groupId, reminderList] of reminders.entries()) {
         const activeReminders = [];
-        
-        for(const reminder of reminderList) {
-            if(now >= reminder.timestamp) {
+
+        for (const reminder of reminderList) {
+            if (now >= reminder.timestamp) {
                 try {
-                    // Kirim pesan
                     await sock.sendMessage(groupId, {
                         text: `⏰ Pengingat dari @${reminder.creator.split('@')[0]}:\n${reminder.message}`,
                         mentions: [reminder.creator, ...reminder.mentions]
                     });
                     console.log(`Reminder ${reminder.id} terkirim`);
                     needsSave = true;
-                } catch(error) {
+                } catch (error) {
                     console.error(`Gagal mengirim reminder ${reminder.id}:`, error);
                     activeReminders.push(reminder);
                 }
@@ -382,15 +352,14 @@ async function processReminders() {
             }
         }
 
-        // Update daftar reminder
-        if(activeReminders.length > 0) {
+        if (activeReminders.length > 0) {
             reminders.set(groupId, activeReminders);
         } else {
             reminders.delete(groupId);
         }
     }
 
-    if(needsSave) {
+    if (needsSave) {
         saveReminders();
         sortReminders();
         console.log('Data JSON diperbarui');
