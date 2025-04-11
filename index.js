@@ -296,7 +296,7 @@ try {
     
     if (!cmd) {
         const suggestion = findClosestCommand(command, commands);
-        let message = '❌ Perintah tidak ditemukan!';
+        let message = '❌ Perintah yang kamu maksud tidak ditemukan!';
         
         if (suggestion) {
             message += `\n🔍 Mungkin command yang kamu maksud: *${suggestion}*`;
