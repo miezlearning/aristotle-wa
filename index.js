@@ -299,7 +299,7 @@ try {
         let message = '❌ Perintah tidak ditemukan!';
         
         if (suggestion) {
-            message += `\n🔍 Mungkin yang kamu maksud: *${suggestion}*`;
+            message += `\n🔍 Mungkin command yang kamu maksud: *${suggestion}*`;
         }
         
         await connection.sendMessage(msg.key.remoteJid, { text: message, quoted: msg });
