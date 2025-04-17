@@ -6,7 +6,7 @@ module.exports = {
     category: 'admin',
     description: 'Menambahkan bot ke grup WhatsApp menggunakan link undangan',
     usage: '!join <link grup WhatsApp>',
-    permission: 'user', // Bisa diubah ke 'admin' atau 'owner' jika hanya untuk pengguna tertentu
+    permission: 'user', 
     async execute(sock, msg, args) {
         console.log('Perintah join dipanggil:', JSON.stringify(msg, null, 2));
         
