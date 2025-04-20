@@ -5,7 +5,7 @@ module.exports = {
     name: 'hidetag',
     category: 'general',
     description: 'Mention semua orang di dalam grup (hanya admin).',
-    usage: '!hidetag <pesan> (opsional: tambahkan media)',
+    usage: '!hidetag <pesan> (opsional: tambahkan media atau reply pesan)',
     permission: 'admin',
     async execute(sock, msg, args) {
         console.log('Memulai perintah hidetag...');
@@ -60,10 +60,19 @@ module.exports = {
                 );
                 console.log('Hidetag dengan video langsung berhasil dikirim.');
             } else {
-                // Cek media di pesan yang dikutip (quoted)
+                // Cek pesan yang dikutip (quoted)
                 const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
                 if (quotedMsg) {
-                    if (quotedMsg.imageMessage) {
+                    // Ambil teks dari quoted message jika ada
+                    if (quotedMsg.conversation || quotedMsg.extendedTextMessage?.text) {
+                        text = quotedMsg.conversation || quotedMsg.extendedTextMessage.text;
+                        await sock.sendMessage(
+                            msg.key.remoteJid,
+                            { text: text, mentions: mentions },
+                            { quoted: msg }
+                        );
+                        console.log('Hidetag dengan teks dari quoted berhasil dikirim.');
+                    } else if (quotedMsg.imageMessage) {
                         // Handle gambar dari quoted
                         const stream = await downloadContentFromMessage(quotedMsg.imageMessage, 'image');
                         const buffer = Buffer.concat(await stream.toArray());
@@ -92,7 +101,7 @@ module.exports = {
                         );
                         console.log('Hidetag dengan video dari quoted berhasil dikirim.');
                     } else {
-                        // Kirim teks biasa kalau quoted bukan media
+                        // Kirim teks biasa kalau quoted bukan media atau teks
                         await sock.sendMessage(
                             msg.key.remoteJid,
                             { text: text, mentions: mentions },
@@ -101,7 +110,7 @@ module.exports = {
                         console.log('Hidetag teks biasa (quoted non-media) berhasil dikirim.');
                     }
                 } else {
-                    // Kirim teks biasa kalau nggak ada media
+                    // Kirim teks biasa kalau nggak ada media atau quoted
                     await sock.sendMessage(
                         msg.key.remoteJid,
                         { text: text, mentions: mentions },
