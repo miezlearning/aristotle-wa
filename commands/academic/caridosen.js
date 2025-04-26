@@ -2,11 +2,42 @@ const config = require('../../config.json');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
+// Data nomor telepon dari spreadsheet (hard-coded berdasarkan data yang diberikan)
+const phoneData = [
+    { nama: "Dr. H. Fahrul Agus, S.Si., MT", telepon: "0812-5868-403" },
+    { nama: "Dr.Ir. Nataniel Dengen, S.Si., M.Si", telepon: "0812-3455-3816" },
+    { nama: "Ramadiani, S.Pd., M.Si., M.Kom., Ph.D", telepon: "0852-5050-1973" },
+    { nama: "Prof. Haviluddin, S.Kom., M.Kom., Ph.D., IPM., ASEAN Eng", telepon: "0813-3111-2002" },
+    { nama: "Prof. Dr. Hamdani, ST., M.Cs., IPM", telepon: "0815-5145-193" },
+    { nama: "Prof. Dr. Anindita Septiarini, ST., M.Cs", telepon: "0815-5145-190" },
+    { nama: "Awang Harsa Kridalaksana, S.Kom., M.Kom", telepon: "0821-1234-1229" },
+    { nama: "Zainal Arifin, S.Kom., M.Kom", telepon: "0812-5877-790" },
+    { nama: "Ir. Dedy Cahyadi, S.Kom., M.Eng", telepon: "0819-5014-112" },
+    { nama: "Ir. Indah Fitri Astuti, S.Kom., M.Cs", telepon: "0852-5012-1280" },
+    { nama: "Masna Wati, S.Si., MT", telepon: "0852-4216-8438" },
+    { nama: "Ir. Novianti Puspitasari, S.Kom., M.Eng", telepon: "0813-4664-8418" },
+    { nama: "Ummul Hairah, S.Pd., MT", telepon: "0852-5588-6778" },
+    { nama: "Medi Taruk, S.Kom., M.Cs", telepon: "0815-4343-8301" },
+    { nama: "Rosmasari, S.Kom., M.T", telepon: "0852-4629-9986" },
+    { nama: "Muhammad Bambang Firdaus, S.Kom., M.Kom", telepon: "0823-5215-8682" },
+    { nama: "Anton Prafanto, S.Kom., M.T", telepon: "0852-5069-0673" },
+    { nama: "Andi Tejawati, S.Si., M.Si", telepon: "0852-4741-9498" },
+    { nama: "Gubtha Mahendra Putra, S.Kom., M.Eng", telepon: "0811-5808-624" },
+    { nama: "Reza Wardhana, S.Kom., M.Eng", telepon: "0811-8207-777" },
+    { nama: "Rasni Alex, MM", telepon: "0811-559-449" },
+    { nama: "Aulia Khoirunnita, M.Kom", telepon: "0853-8872-9017" },
+    { nama: "Riftika Rizawanti, M.Cs", telepon: "0877-6247-0080" },
+    { nama: "M. Ibadurrahman A.S., M.Kom", telepon: "0851-5539-9159" },
+    { nama: "Rajiansyah, M. Sc", telepon: "+48 731 819 948" },
+    { nama: "Dr. Ir. Didit Suprihanto., S.T., M.Kom", telepon: "0812-5130-2222" },
+    { nama: "Dr. Akhmad Irsyad, S.T., M.Kom", telepon: "0812-8654-3021" }
+];
+
 module.exports = {
     name: 'caridosen',
     alias: ['dosendata', 'infodosen'],
     category: 'academic',
-    description: 'Mengambil data dosen berdasarkan nama (khusus UNMUL) termasuk NIP dan foto',
+    description: 'Mengambil data dosen berdasarkan nama (khusus UNMUL) termasuk NIP, foto, dan nomor telepon',
     usage: '!caridosen <nama dosen>',
     permission: 'user',
     async execute(sock, msg, args) {
@@ -179,12 +210,24 @@ module.exports = {
                 console.warn('Dosen tidak ditemukan di situs UNMUL Informatika untuk NIP dan foto.');
             }
 
-            // Langkah 5: Format hasil
+            // Langkah 5: Cari nomor telepon dari data spreadsheet
+            let telepon = 'Tidak tersedia';
+            const phoneMatch = phoneData.find(data => 
+                data.nama.toLowerCase().includes(keyword.toLowerCase())
+            );
+            if (phoneMatch) {
+                telepon = phoneMatch.telepon;
+            } else {
+                console.warn('Nomor telepon tidak ditemukan di spreadsheet.');
+            }
+
+            // Langkah 6: Format hasil
             const resultText = `👨‍🏫 *Data Dosen UNMUL*\n\n` +
                               `👤 Nama: ${dosenInfo.nama}\n` +
                               `📍 NIP: ${nip}\n` +
                               `📍 NIDN: ${dosenInfo.nidn}\n` +
                               `📍 NUPTK: ${dosenInfo.nuptk}\n` +
+                              `📞 Nomor Telepon: ${telepon}\n` +
                               `🏫 Program Studi: ${dosenInfo.nama_prodi}\n` +
                               `🎓 Perguruan Tinggi: ${dosenInfo.nama_pt}\n\n` +
                               `📋 *Profil Dosen*\n` +
