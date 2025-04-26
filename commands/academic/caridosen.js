@@ -2,7 +2,7 @@ const config = require('../../config.json');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-// Data nomor telepon dari spreadsheet (hard-coded berdasarkan data yang diberikan)
+// Data nomor telepon dari spreadsheet (hard-coded berdasarkan data sebelumnya)
 const phoneData = [
     { nama: "Dr. H. Fahrul Agus, S.Si., MT", telepon: "0812-5868-403" },
     { nama: "Dr.Ir. Nataniel Dengen, S.Si., M.Si", telepon: "0812-3455-3816" },
@@ -37,7 +37,7 @@ module.exports = {
     name: 'caridosen',
     alias: ['dosendata', 'infodosen'],
     category: 'academic',
-    description: 'Mengambil data dosen berdasarkan nama (khusus UNMUL) termasuk NIP, foto, dan nomor telepon',
+    description: 'Mengambil data dosen berdasarkan nama (khusus UNMUL) termasuk NIP, foto, nomor telepon, dan indeks',
     usage: '!caridosen <nama dosen>',
     permission: 'user',
     async execute(sock, msg, args) {
@@ -163,7 +163,7 @@ module.exports = {
 
             // Langkah 4: Scraping NIP dan foto dari situs UNMUL Informatika
             const scrapeUrl = 'https://informatika.ft.unmul.ac.id/page?content=Dosen';
-            console.log('Scraping URL:', scrapeUrl);
+            console.log('Scraping URL untuk NIP dan Foto:', scrapeUrl);
 
             const scrapeResponse = await axios.get(scrapeUrl);
             const $ = cheerio.load(scrapeResponse.data);
@@ -221,7 +221,66 @@ module.exports = {
                 console.warn('Nomor telepon tidak ditemukan di spreadsheet.');
             }
 
-            // Langkah 6: Format hasil
+            // Langkah 6: Scraping indeks dari SINTA
+            let scopusUrl = 'Tidak tersedia';
+            let sintaUrl = 'Tidak tersedia';
+            let googleScholarUrl = 'Tidak tersedia';
+
+            try {
+                // Cari dosen di SINTA
+                const sintaSearchUrl = `https://sinta.kemdikbud.go.id/authors?type=author&q=${encodeURIComponent(keyword)}`;
+                console.log('Scraping SINTA Search URL:', sintaSearchUrl);
+
+                const sintaResponse = await axios.get(sintaSearchUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    }
+                });
+                const $sinta = cheerio.load(sintaResponse.data);
+
+                // Cari card dosen yang sesuai (berafiliasi dengan Universitas Mulawarman)
+                const profileCard = $sinta('.list-item').filter((i, el) => {
+                    const name = $sinta(el).find('.profile-name a').text().trim().toLowerCase();
+                    const affiliation = $sinta(el).find('.profile-affil a').text().trim().toLowerCase();
+                    return name.includes(keyword.toLowerCase()) && affiliation.includes('universitas mulawarman');
+                }).first();
+
+                if (profileCard.length) {
+                    // Ambil URL SINTA dari elemen profile-name
+                    const sintaPath = profileCard.find('.profile-name a').attr('href');
+                    if (sintaPath) {
+                        // Pastikan URL tidak digabungkan secara berlebihan
+                        sintaUrl = sintaPath.startsWith('http') ? sintaPath : `https://sinta.kemdikbud.go.id${sintaPath}`;
+                        console.log('SINTA Profile URL:', sintaUrl);
+
+                        // Kunjungi halaman profil untuk mengambil tautan Scopus dan Google Scholar
+                        const profileResponse = await axios.get(sintaUrl, {
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                            }
+                        });
+                        const $profile = cheerio.load(profileResponse.data);
+
+                        // Cari tautan Scopus
+                        const scopusLink = $profile('a[href*="scopus.com"]').attr('href');
+                        if (scopusLink) {
+                            scopusUrl = scopusLink;
+                        }
+
+                        // Cari tautan Google Scholar
+                        const googleScholarLink = $profile('a[href*="scholar.google.com"]').attr('href');
+                        if (googleScholarLink) {
+                            googleScholarUrl = googleScholarLink;
+                        }
+                    }
+                } else {
+                    console.warn('Profil SINTA tidak ditemukan untuk dosen ini.');
+                }
+            } catch (sintaError) {
+                console.warn('Gagal mengambil indeks dari SINTA:', sintaError.message);
+            }
+
+            // Langkah 7: Format hasil
             const resultText = `👨‍🏫 *Data Dosen UNMUL*\n\n` +
                               `👤 Nama: ${dosenInfo.nama}\n` +
                               `📍 NIP: ${nip}\n` +
@@ -236,7 +295,11 @@ module.exports = {
                               `Pendidikan Tertinggi: ${profileInfo.pendidikan_tertinggi}\n` +
                               `Status Ikatan Kerja: ${profileInfo.status_ikatan_kerja}\n` +
                               `Status Aktivitas: ${profileInfo.status_aktivitas}\n\n` +
-                              `🎓 *Riwayat Pendidikan*\n${studyText}`;
+                              `🎓 *Riwayat Pendidikan*\n${studyText}\n\n` +
+                              `📊 *Indeks*\n` +
+                              `Scopus: ${scopusUrl}\n` +
+                              `SINTA: ${sintaUrl}\n` +
+                              `Google Scholar: ${googleScholarUrl}`;
 
             // Kirim pesan dengan foto (jika ada)
             if (buffer) {
