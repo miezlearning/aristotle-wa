@@ -1,11 +1,12 @@
 const config = require('../../config.json');
 const axios = require('axios');
+const cheerio = require('cheerio');
 
 module.exports = {
     name: 'caridosen',
     alias: ['dosendata', 'infodosen'],
     category: 'academic',
-    description: 'Mengambil data dosen berdasarkan nama (khusus UNMUL)',
+    description: 'Mengambil data dosen berdasarkan nama (khusus UNMUL) termasuk NIP dan foto',
     usage: '!caridosen <nama dosen>',
     permission: 'user',
     async execute(sock, msg, args) {
@@ -50,14 +51,14 @@ module.exports = {
             // Beri reaksi loading
             await sock.sendMessage(msg.key.remoteJid, { react: { text: "⏳", key: msg.key } });
 
-            // Langkah 1: Cari dosen di UNMUL
+            // Langkah 1: Cari dosen menggunakan API PDDikti
             const searchUrl = `https://api-pddikti.vercel.app/search/dosen/${encodeURIComponent(keyword + ' unmul')}`;
             console.log('API URL Pencarian Dosen:', searchUrl);
 
             const searchResponse = await axios.get(searchUrl);
             const dosenData = searchResponse.data;
 
-            // Cek apakah data ditemukan (respons API berupa array langsung, bukan objek dengan properti "dosen")
+            // Cek apakah data ditemukan (respons API berupa array langsung)
             if (!Array.isArray(dosenData) || dosenData.length === 0) {
                 return await sock.sendMessage(msg.key.remoteJid, {
                     text: `⚠️ Dosen dengan nama "${keyword}" tidak ditemukan di UNMUL!`
@@ -75,7 +76,7 @@ module.exports = {
                 nama_prodi: dosen.nama_prodi || 'Tidak tersedia'
             };
 
-            // Langkah 2: Ambil profil dosen
+            // Langkah 2: Ambil profil dosen dari API
             const profileUrl = `https://api-pddikti.vercel.app/dosen/profile/${idDosen}/`;
             console.log('API URL Profil Dosen:', profileUrl);
 
@@ -102,7 +103,7 @@ module.exports = {
                 };
             }
 
-            // Langkah 3: Ambil riwayat pendidikan dosen
+            // Langkah 3: Ambil riwayat pendidikan dosen dari API
             const studyUrl = `https://api-pddikti.vercel.app/dosen/study-history/${idDosen}/`;
             console.log('API URL Riwayat Pendidikan:', studyUrl);
 
@@ -129,9 +130,59 @@ module.exports = {
                 studyText = '⚠️ Riwayat pendidikan tidak ditemukan.';
             }
 
-            // Format hasil akhir
+            // Langkah 4: Scraping NIP dan foto dari situs UNMUL Informatika
+            const scrapeUrl = 'https://informatika.ft.unmul.ac.id/page?content=Dosen';
+            console.log('Scraping URL:', scrapeUrl);
+
+            const scrapeResponse = await axios.get(scrapeUrl);
+            const $ = cheerio.load(scrapeResponse.data);
+
+            // Ambil semua elemen <p> yang berisi data dosen
+            const dosenList = [];
+            let currentDosen = null;
+
+            $('.post-content p').each((index, element) => {
+                const $element = $(element);
+                const text = $element.text().trim();
+                const img = $element.find('img').attr('src');
+
+                if (img) {
+                    currentDosen = { photoUrl: img };
+                } else if (text && currentDosen && !currentDosen.nama) {
+                    currentDosen.nama = text;
+                } else if (text && currentDosen && currentDosen.nama && !currentDosen.nip) {
+                    currentDosen.nip = text.replace(/\s/g, '');
+                    dosenList.push(currentDosen);
+                    currentDosen = null;
+                }
+            });
+
+            // Cari dosen yang cocok dengan keyword
+            const dosenMatch = dosenList.find(dosen => 
+                dosen.nama.toLowerCase().includes(keyword.toLowerCase())
+            );
+
+            let nip = 'Tidak tersedia';
+            let buffer = null;
+            if (dosenMatch) {
+                nip = dosenMatch.nip;
+
+                // Ambil foto dosen
+                try {
+                    const photoResponse = await axios.get(dosenMatch.photoUrl, { responseType: 'arraybuffer' });
+                    buffer = Buffer.from(photoResponse.data, 'binary');
+                } catch (photoError) {
+                    console.warn('Gagal mengambil foto:', photoError.message);
+                    buffer = null;
+                }
+            } else {
+                console.warn('Dosen tidak ditemukan di situs UNMUL Informatika untuk NIP dan foto.');
+            }
+
+            // Langkah 5: Format hasil
             const resultText = `👨‍🏫 *Data Dosen UNMUL*\n\n` +
                               `👤 Nama: ${dosenInfo.nama}\n` +
+                              `📍 NIP: ${nip}\n` +
                               `📍 NIDN: ${dosenInfo.nidn}\n` +
                               `📍 NUPTK: ${dosenInfo.nuptk}\n` +
                               `🏫 Program Studi: ${dosenInfo.nama_prodi}\n` +
@@ -144,10 +195,17 @@ module.exports = {
                               `Status Aktivitas: ${profileInfo.status_aktivitas}\n\n` +
                               `🎓 *Riwayat Pendidikan*\n${studyText}`;
 
-            // Kirim hasil ke pengguna
-            await sock.sendMessage(msg.key.remoteJid, {
-                text: resultText
-            });
+            // Kirim pesan dengan foto (jika ada)
+            if (buffer) {
+                await sock.sendMessage(msg.key.remoteJid, {
+                    image: buffer,
+                    caption: resultText
+                });
+            } else {
+                await sock.sendMessage(msg.key.remoteJid, {
+                    text: resultText + '\n⚠️ Foto tidak ditemukan.'
+                });
+            }
 
             // Beri reaksi sukses
             await sock.sendMessage(msg.key.remoteJid, { react: { text: "✅", key: msg.key } });
@@ -156,7 +214,7 @@ module.exports = {
             console.error('Error processing caridosen command:', error);
             await sock.sendMessage(msg.key.remoteJid, { react: { text: "⚠️", key: msg.key } });
             await sock.sendMessage(msg.key.remoteJid, {
-                text: '❌ Gagal memproses perintah: ' + (error.response?.status === 404 ? 'Data dosen tidak ditemukan!' : error.message)
+                text: '❌ Gagal memproses perintah: ' + error.message
             });
         }
     }
