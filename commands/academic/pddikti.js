@@ -47,7 +47,7 @@ module.exports = {
             await sock.sendMessage(msg.key.remoteJid, { react: { text: "⏳", key: msg.key } });
 
             // URL API PDDikti
-            const url = "https://api-pddikti.ridwaanhall.me/search/mhs";
+            const url = "https:/api-pddikti.ridwaanhall.com/search/mhs";
             const apiUrl = `${url}/${encodeURIComponent(keyword)}/?format=json`;
             console.log('API URL:', apiUrl);
 

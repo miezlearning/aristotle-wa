@@ -83,7 +83,7 @@ module.exports = {
             await sock.sendMessage(msg.key.remoteJid, { react: { text: "⏳", key: msg.key } });
 
             // Langkah 1: Cari dosen menggunakan API PDDikti
-            const searchUrl = `https://api-pddikti.vercel.app/search/dosen/${encodeURIComponent(keyword + ' unmul')}`;
+            const searchUrl = `https://api-pddikti.ridwaanhall.com/search/dosen/${encodeURIComponent(keyword + ' unmul')}`;
             console.log('API URL Pencarian Dosen:', searchUrl);
 
             const searchResponse = await axios.get(searchUrl);
@@ -108,7 +108,7 @@ module.exports = {
             };
 
             // Langkah 2: Ambil profil dosen dari API
-            const profileUrl = `https://api-pddikti.vercel.app/dosen/profile/${idDosen}/`;
+            const profileUrl = `https://api-pddikti.ridwaanhall.com/dosen/profile/${idDosen}/`;
             console.log('API URL Profil Dosen:', profileUrl);
 
             let profileInfo = {};
@@ -135,7 +135,7 @@ module.exports = {
             }
 
             // Langkah 3: Ambil riwayat pendidikan dosen dari API
-            const studyUrl = `https://api-pddikti.vercel.app/dosen/study-history/${idDosen}/`;
+            const studyUrl = `https://api-pddikti.ridwaanhall.com/dosen/study-history/${idDosen}/`;
             console.log('API URL Riwayat Pendidikan:', studyUrl);
 
             let studyText = '';
